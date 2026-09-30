@@ -1,34 +1,29 @@
-import { collection, doc, getDoc, getDocs, limit, query, setDoc, Timestamp, where, type DocumentData } from 'firebase/firestore';
+import { doc, getDoc, getDocs, collection, query, type QueryConstraint } from 'firebase/firestore';
 import { db } from '../config/firebase';
-
-/** Domain timestamps are ISO strings; existing Firestore Timestamp values are normalized here. */
-export function fromFirestore<T>(id: string, data: DocumentData): T {
-  const normalized = Object.fromEntries(Object.entries(data).map(([key, value]) =>
-    [key, value instanceof Timestamp ? value.toDate().toISOString() : value]));
-  return { ...normalized, id } as T;
-}
+import { firestoreError, type RecordData } from '../utils/providerFirestoreMapping';
 export function assertId(id: string) {
   if (!id.trim() || id.includes('/')) throw new Error('A valid document ID is required.');
 }
-export function createRepository<T extends { id: string }>(collectionName: string) {
-  return {
-    async getById(id: string): Promise<T | null> {
-      assertId(id);
-      const snapshot = await getDoc(doc(db, collectionName, id));
-      return snapshot.exists() ? fromFirestore<T>(snapshot.id, snapshot.data()) : null;
-    },
-    // Bounded reads: add cursor pagination when connecting production screens.
-    async listBy(field: keyof T & string, value: string): Promise<T[]> {
-      assertId(value);
-      const snapshot = await getDocs(query(collection(db, collectionName), where(field, '==', value), limit(100)));
-      return snapshot.docs.map(item => fromFirestore<T>(item.id, item.data()));
-    },
-    async save(record: T): Promise<void> {
-      assertId(record.id);
-      const { id, ...data } = record;
-      const serialized = Object.fromEntries(Object.entries(data).filter(([, value]) => value !== undefined)
-        .map(([key, value]) => [key, (key === 'createdAt' || key === 'updatedAt') && typeof value === 'string' ? Timestamp.fromDate(new Date(value)) : value]));
-      await setDoc(doc(db, collectionName, id), serialized, { merge: true });
-    },
-  };
+export async function firestoreOperation<T>(operation: string, work: () => Promise<T>): Promise<T> {
+  try { return await work(); }
+  catch (error) { throw new Error(operation + ': ' + firestoreError(error)); }
+}
+export function readById<T>(name: string, id: string, parse: (id: string, data: RecordData) => T) {
+  return firestoreOperation('Load ' + name, async () => {
+    assertId(id);
+    const snapshot = await getDoc(doc(db, name, id));
+    if (snapshot.metadata.fromCache) throw new Error('Could not confirm this record with Firestore. Check your connection and retry.');
+    return snapshot.exists() ? parse(snapshot.id, snapshot.data()) : null;
+  });
+}
+export function readCollection<T>(name: string, parse: (id: string, data: RecordData) => T, constraints: QueryConstraint[] = []) {
+  return firestoreOperation('Load ' + name, async () => {
+    // No arbitrary limit: counts and filters include every accessible request.
+    const snapshot = await getDocs(query(collection(db, name), ...constraints));
+    if (snapshot.metadata.fromCache) throw new Error('Could not confirm the collection with Firestore. Check your connection and retry.');
+    return snapshot.docs.map(item => {
+      try { return parse(item.id, item.data()); }
+      catch (error) { throw new Error(name + '/' + item.id + ': ' + firestoreError(error)); }
+    });
+  });
 }

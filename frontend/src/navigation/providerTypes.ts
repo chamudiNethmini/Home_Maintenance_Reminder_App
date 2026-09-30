@@ -5,10 +5,10 @@ export type ProviderTabParams = { Dashboard: undefined; Requests: undefined; Not
 export type ProviderStackParams = {
   WarrantyProviderEntry: undefined;
   ProviderHome: NavigatorScreenParams<ProviderTabParams>;
-  CustomerApplianceInfo: { requestId: string };
-  DocumentReview: { requestId: string };
-  WarrantyVerification: { requestId: string };
-  StatusUpdate: { requestId: string };
+  CustomerApplianceInfo: { warrantyRequestId: string };
+  DocumentReview: { warrantyRequestId: string };
+  WarrantyVerification: { warrantyRequestId: string };
+  StatusUpdate: { warrantyRequestId: string };
 };
 export type ProviderScreenProps<T extends keyof ProviderStackParams> = NativeStackScreenProps<ProviderStackParams, T>;
 export type ProviderTabProps<T extends keyof ProviderTabParams> = CompositeScreenProps<BottomTabScreenProps<ProviderTabParams, T>, NativeStackScreenProps<ProviderStackParams>>;

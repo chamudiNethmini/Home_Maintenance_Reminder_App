@@ -1,19 +1,34 @@
-import { doc, updateDoc, writeBatch } from 'firebase/firestore';
+import { collection, addDoc, deleteDoc, doc, updateDoc, where, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import type { ProviderNotification } from '../types/provider';
-import { assertId, createRepository } from './providerFirestore';
-const repository = createRepository<ProviderNotification>('providerNotifications');
-export const listProviderNotifications = (providerId: string) => repository.listBy('providerId', providerId);
-export async function markProviderNotificationRead(id: string) {
-  assertId(id); await updateDoc(doc(db, 'providerNotifications', id), { isRead: true });
+import type { CreateProviderNotification } from '../types/provider';
+import { parseNotification } from '../utils/providerFirestoreMapping';
+import { assertId, firestoreOperation, readCollection } from './providerFirestore';
+export function createProviderNotification(data: CreateProviderNotification) {
+  return firestoreOperation('Create notification', async () => {
+    assertId(data.warrantyRequestId);
+    const reference = await addDoc(collection(db, 'providerNotifications'), { ...data, createdAt: serverTimestamp() });
+    return reference.id;
+  });
 }
-/** Pass the IDs from the current provider's loaded notification list. */
-export async function markProviderNotificationsRead(ids: string[]) {
-  const unique = [...new Set(ids)];
-  unique.forEach(assertId);
-  for (let offset = 0; offset < unique.length; offset += 400) {
-    const batch = writeBatch(db);
-    unique.slice(offset, offset + 400).forEach(id => batch.update(doc(db, 'providerNotifications', id), { isRead: true }));
-    await batch.commit();
-  }
+export async function getProviderNotifications(providerId?: string) {
+  // TODO(auth integration): supply the verified provider ID and enforce ownership in Firestore rules.
+  // Until then, this explicit service-level fallback reads all accessible provider notifications.
+  const data = await readCollection('providerNotifications', parseNotification, providerId ? [where('providerId', '==', providerId)] : []);
+  return data.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+export function markNotificationAsRead(id: string) {
+  return firestoreOperation('Mark notification as read', async () => { assertId(id); await updateDoc(doc(db, 'providerNotifications', id), { isRead: true }); });
+}
+export function markAllNotificationsAsRead(providerId?: string) {
+  return firestoreOperation('Mark all notifications as read', async () => {
+    const unread = (await getProviderNotifications(providerId)).filter(item => !item.isRead);
+    for (let offset = 0; offset < unread.length; offset += 400) {
+      const batch = writeBatch(db);
+      unread.slice(offset, offset + 400).forEach(item => batch.update(doc(db, 'providerNotifications', item.id), { isRead: true }));
+      await batch.commit();
+    }
+  });
+}
+export function deleteProviderNotification(id: string) {
+  return firestoreOperation('Delete notification', async () => { assertId(id); await deleteDoc(doc(db, 'providerNotifications', id)); });
 }

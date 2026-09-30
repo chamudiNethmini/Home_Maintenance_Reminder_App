@@ -12,7 +12,7 @@ export function Page({ children, title, subtitle, action }: { children: ReactNod
   const insets = useSafeAreaInsets();
   return <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.background }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
     <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 20, paddingTop: 18 + insets.top, paddingBottom: 32 + insets.bottom, flexGrow: 1 }}>
-      <View style={ui.content}><View style={ui.between}><Brand /><View style={ui.demo}><Text style={ui.demoText}>LOCAL PREVIEW</Text></View></View>
+      <View style={ui.content}><View style={ui.between}><Brand /><View style={ui.demo}><Text style={ui.demoText}>FIRESTORE</Text></View></View>
         <View style={ui.between}><View style={{ flex: 1, gap: 7 }}><Text accessibilityRole="header" style={ui.heading}>{title}</Text>{subtitle && <Text style={ui.subtitle}>{subtitle}</Text>}</View>{action}</View>{children}
       </View>
     </ScrollView>

@@ -14,7 +14,7 @@ export default function WarrantyProviderEntryScreen({ navigation }: ProviderScre
           {i === 2 && <Icon name="checkmark-circle" size={26} />}
         </Pressable>)}
       </View>
-      <Text style={[ui.subtitle, { textAlign: 'center', fontSize: 12 }]}>Warranty Provider module preview. Other roles are managed by the wider FixMate team. Selecting a role does not sign you in.</Text>
+      <Text style={[ui.subtitle, { textAlign: 'center', fontSize: 12 }]}>Warranty Provider workspace. Other roles are managed by the wider FixMate team. Selecting a role does not sign you in.</Text>
     </View>
   </ScrollView>;
 }

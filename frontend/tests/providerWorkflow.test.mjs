@@ -23,6 +23,48 @@ function load(file, overrides = {}, cache = new Map()) {
 }
 const workflow = load('utils/providerWorkflow.ts');
 const mapping = load('utils/providerFirestoreMapping.ts');
+const requestForm = load('utils/warrantyRequestForm.ts');
+const newRequest = { customerName: ' New Customer ', customerPhone: '+94 771234567', customerEmail: 'customer@example.com', applianceName: 'Fridge', brand: 'Example', model: 'F1', serialNumber: 'S123', purchaseDate: '2025-01-01', warrantyExpiryDate: '2030-01-01', notes: '' };
+test('creation validates required contact fields and real calendar dates', () => {
+  assert.equal(requestForm.validateWarrantyRequestForm(newRequest), '');
+  for (const [key, value] of [['customerName', ' '], ['customerEmail', 'invalid'], ['customerPhone', '123'], ['purchaseDate', '2025-02-30'], ['purchaseDate', '2999-01-01'], ['warrantyExpiryDate', '2024-01-01']]) {
+    assert.notEqual(requestForm.validateWarrantyRequestForm({ ...newRequest, [key]: value }), '');
+  }
+});
+test('creation commits three linked records with timestamps, pending status and unique customer IDs', async () => {
+  const fake = fakeFirestore();
+  const service = fake.service('createWarrantyCase');
+  const result = await service.createWarrantyCase(newRequest);
+  assert.equal(fake.records.size, 3);
+  const request = fake.records.get('warrantyRequests/' + result.warrantyRequestId);
+  const appliance = fake.records.get('appliances/' + result.applianceId);
+  const warranty = fake.records.get('warranties/' + result.warrantyId);
+  assert.equal(request.customerName, 'New Customer');
+  assert.equal(request.status, 'pending'); assert.equal(request.providerId, null);
+  assert.equal(request.customerId, appliance.customerId); assert.equal(warranty.customerId, request.customerId);
+  assert.equal(request.applianceId, result.applianceId); assert.equal(warranty.applianceId, result.applianceId);
+  assert.equal(request.warrantyId, result.warrantyId); assert.equal(warranty.status, 'active');
+  assert.equal(warranty.modelCovered, null); assert.equal(appliance.warrantyExpiryDate, newRequest.warrantyExpiryDate);
+  for (const record of [request, appliance, warranty]) {
+    assert.deepEqual(record.createdAt, { serverTimestamp: true }); assert.deepEqual(record.updatedAt, { serverTimestamp: true });
+  }
+  const second = await service.createWarrantyCase(newRequest);
+  assert.notEqual(second.customerId, result.customerId);
+  const assigned = await service.createWarrantyCase(newRequest, { customerId: 'shared-customer', providerId: 'assigned-provider' });
+  assert.equal(fake.records.get('warrantyRequests/' + assigned.warrantyRequestId).providerId, 'assigned-provider');
+  assert.equal(assigned.customerId, 'shared-customer');
+});
+test('denied creation leaves no partial records and invalid forms never write', async () => {
+  const fake = fakeFirestore(); fake.setFailWrite(true);
+  const original = console.error; const logged = []; console.error = (...args) => logged.push(args);
+  try {
+    await assert.rejects(() => fake.service('createWarrantyCase').createWarrantyCase(newRequest), /permission/i);
+    assert.equal(fake.records.size, 0); assert.equal(logged[0][1].code, 'permission-denied');
+    fake.setFailWrite(false);
+    await assert.rejects(() => fake.service('createWarrantyCase').createWarrantyCase({ ...newRequest, customerEmail: '' }), /required/);
+    assert.equal(fake.records.size, 0);
+  } finally { console.error = original; }
+});
 function fakeFirestore() {
   const records = new Map(), operations = []; let nextId = 0, failWrite = false;
   const snapshot = ref => ({ id: ref.path.split('/').at(-1), metadata: { fromCache: false }, exists: () => records.has(ref.path), data: () => records.get(ref.path) });
@@ -36,7 +78,7 @@ function fakeFirestore() {
   const sdk = {
     Timestamp,
     collection: (_db, name) => ({ path: name }),
-    doc: (...args) => args.length === 1 ? { path: args[0].path + '/generated-' + ++nextId } : { path: args.slice(1).join('/') },
+    doc: (...args) => args.length === 1 ? { path: args[0].path + '/generated-' + ++nextId, id: 'generated-' + nextId } : { path: args.slice(1).join('/') },
     where: (field, operator, value) => ({ kind: 'where', field, operator, value }),
     orderBy: (field, direction) => ({ kind: 'order', field, direction }),
     query: (reference, ...constraints) => ({ ...reference, constraints }),
@@ -52,7 +94,7 @@ function fakeFirestore() {
     addDoc: async (ref, data) => { const created = { path: ref.path + '/created-' + ++nextId }; write('set', created, data); return { id: created.path.split('/').at(-1) }; },
     updateDoc: async (ref, data) => write('update', ref, data),
     deleteDoc: async ref => write('delete', ref),
-    writeBatch: () => { const writes = []; return { update: (ref, data) => writes.push(['update', ref, data]), commit: async () => { if (failWrite) throw Object.assign(new Error('Missing permissions'), { code: 'permission-denied' }); writes.forEach(args => write(...args)); } }; },
+    writeBatch: () => { const writes = []; return { set: (ref, data) => writes.push(['set', ref, data]), update: (ref, data) => writes.push(['update', ref, data]), commit: async () => { if (failWrite) throw Object.assign(new Error('Missing permissions'), { code: 'permission-denied' }); writes.forEach(args => write(...args)); } }; },
     runTransaction: async (_db, action) => {
       const writes = [];
       await action({ get: async ref => snapshot(ref), update: (ref, data) => writes.push(['update', ref, data]), set: (ref, data) => writes.push(['set', ref, data]), delete: ref => writes.push(['delete', ref]) });

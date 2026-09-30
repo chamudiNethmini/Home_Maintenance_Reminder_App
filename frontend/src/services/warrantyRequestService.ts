@@ -1,4 +1,5 @@
-import { addDoc, collection, deleteDoc, doc, orderBy, runTransaction, serverTimestamp, updateDoc, where, type QueryConstraint } from 'firebase/firestore';
+import { addDoc, collection, deleteDoc, doc, orderBy, runTransaction, serverTimestamp, updateDoc, where, type QueryConstraint, type WriteBatch } from 'firebase/firestore';
+import { createProviderRecord } from './providerCreate';
 import { db } from '../config/firebase';
 import type { CreateWarrantyRequest, RequestStatus, RequestSummary, WarrantyCase, WarrantyRequest } from '../types/provider';
 import { parseAppliance, parseDocument, parseRequest, parseWarranty } from '../utils/providerFirestoreMapping';
@@ -8,9 +9,10 @@ import { getApplianceById } from './applianceService';
 import { getWarrantyById } from './warrantyService';
 import { getDocumentsByWarrantyRequest } from './warrantyDocumentService';
 
-export function createWarrantyRequest(data: CreateWarrantyRequest) {
+export function createWarrantyRequest(data: CreateWarrantyRequest, batch?: WriteBatch) {
   return firestoreOperation('Create warranty request', async () => {
     assertId(data.customerId); assertId(data.applianceId); assertId(data.warrantyId);
+    if (batch) return createProviderRecord('warrantyRequests', { ...data, status: toFirestoreStatus(data.status) }, batch);
     const reference = await addDoc(collection(db, 'warrantyRequests'), { ...data, status: toFirestoreStatus(data.status), createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
     return reference.id;
   });

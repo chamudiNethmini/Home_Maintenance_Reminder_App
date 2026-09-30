@@ -4,6 +4,7 @@ import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 export type ProviderTabParams = { Dashboard: undefined; Requests: undefined; Notifications: undefined; Profile: undefined };
 export type ProviderStackParams = {
   WarrantyProviderEntry: undefined;
+  CreateWarrantyRequest: undefined;
   ProviderHome: NavigatorScreenParams<ProviderTabParams>;
   CustomerApplianceInfo: { warrantyRequestId: string };
   DocumentReview: { warrantyRequestId: string };

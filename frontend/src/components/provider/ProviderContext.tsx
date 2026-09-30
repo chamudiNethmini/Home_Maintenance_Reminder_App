@@ -4,6 +4,9 @@ import { getRequestSummaries } from '../../services/warrantyRequestService';
 import { getProviderNotifications, markAllNotificationsAsRead, markNotificationAsRead } from '../../services/providerNotificationService';
 import { firestoreError } from '../../utils/providerFirestoreMapping';
 interface Value {
+  providerId?: string;
+  createdRequestId: string | null;
+  setCreatedRequestId: (id: string | null) => void;
   state: ProviderState;
   requestsLoading: boolean; requestsError: string; requestsWarning: string;
   notificationsLoading: boolean; notificationsError: string;
@@ -12,6 +15,7 @@ interface Value {
 }
 const Context = createContext<Value | null>(null);
 export function ProviderModuleProvider({ children, providerId }: { children: ReactNode; providerId?: string }) {
+  const [createdRequestId, setCreatedRequestId] = useState<string | null>(null);
   const [state, setState] = useState<ProviderState>({ requests: [], notifications: [] });
   const [requestsLoading, setRequestsLoading] = useState(true), [requestsError, setRequestsError] = useState(''), [requestsWarning, setRequestsWarning] = useState('');
   const [notificationsLoading, setNotificationsLoading] = useState(true), [notificationsError, setNotificationsError] = useState('');
@@ -45,7 +49,7 @@ export function ProviderModuleProvider({ children, providerId }: { children: Rea
     // Refresh errors have their own UI; a completed write is still a successful write.
     await refreshNotifications();
   };
-  return <Context.Provider value={{ state, requestsLoading, requestsError, requestsWarning, notificationsLoading, notificationsError, refreshRequests, refreshNotifications, markRead }}>{children}</Context.Provider>;
+  return <Context.Provider value={{ providerId, createdRequestId, setCreatedRequestId, state, requestsLoading, requestsError, requestsWarning, notificationsLoading, notificationsError, refreshRequests, refreshNotifications, markRead }}>{children}</Context.Provider>;
 }
 export function useProviderModule() {
   const value = useContext(Context);

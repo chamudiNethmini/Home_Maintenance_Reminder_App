@@ -3,6 +3,7 @@ import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'react-native';
 import ProviderNavigator from './src/navigation/ProviderNavigator';
+import { providerLinking } from './src/navigation/providerLinking';
 import { ProviderModuleProvider } from './src/components/provider/ProviderContext';
 import { colors } from './src/components/provider/ProviderUI';
 
@@ -23,7 +24,7 @@ export default function App() {
     <SafeAreaProvider>
       <StatusBar barStyle="dark-content" />
       <ProviderModuleProvider>
-        <NavigationContainer theme={theme}>
+        <NavigationContainer theme={theme} linking={providerLinking}>
           <ProviderNavigator />
         </NavigationContainer>
       </ProviderModuleProvider>

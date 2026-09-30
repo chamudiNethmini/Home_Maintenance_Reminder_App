@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Home Maintenance Reminder",
+    "name": "FixMate",
     "slug": "home-maintenance-reminder-app",
     "version": "1.0.0",
     "platforms": ["android", "ios", "web"],

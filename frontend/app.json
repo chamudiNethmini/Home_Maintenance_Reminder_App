@@ -1,0 +1,11 @@
+{
+  "expo": {
+    "name": "Home Maintenance Reminder",
+    "slug": "home-maintenance-reminder-app",
+    "version": "1.0.0",
+    "platforms": ["android", "ios", "web"],
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}

@@ -2,18 +2,17 @@ import { addDoc, collection, deleteDoc, doc, orderBy, runTransaction, serverTime
 import { createProviderRecord } from './providerCreate';
 import { db } from '../config/firebase';
 import type { CreateWarrantyRequest, RequestStatus, RequestSummary, WarrantyCase, WarrantyRequest } from '../types/provider';
-import { parseAppliance, parseDocument, parseRequest, parseWarranty } from '../utils/providerFirestoreMapping';
-import { eligibility, toFirestoreStatus } from '../utils/providerWorkflow';
+import { parseAppliance, parseRequest, parseWarranty } from '../utils/providerFirestoreMapping';
+import { assertRequestEditable, eligibility, toFirestoreStatus } from '../utils/providerWorkflow';
 import { assertId, firestoreOperation, readById, readCollection } from './providerFirestore';
 import { getApplianceById } from './applianceService';
 import { getWarrantyById } from './warrantyService';
-import { getDocumentsByWarrantyRequest } from './warrantyDocumentService';
 
 export function createWarrantyRequest(data: CreateWarrantyRequest, batch?: WriteBatch) {
   return firestoreOperation('Create warranty request', async () => {
     assertId(data.customerId); assertId(data.applianceId); assertId(data.warrantyId);
-    if (batch) return createProviderRecord('warrantyRequests', { ...data, status: toFirestoreStatus(data.status) }, batch);
-    const reference = await addDoc(collection(db, 'warrantyRequests'), { ...data, status: toFirestoreStatus(data.status), createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+    if (batch) return createProviderRecord('warrantyRequests', { warrantyCardUploaded: false, purchaseReceiptUploaded: false, documentsReviewed: false, ...data, status: toFirestoreStatus(data.status) }, batch);
+    const reference = await addDoc(collection(db, 'warrantyRequests'), { warrantyCardUploaded: false, purchaseReceiptUploaded: false, documentsReviewed: false, ...data, status: toFirestoreStatus(data.status), createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
     return reference.id;
   });
 }
@@ -28,7 +27,28 @@ export async function getWarrantyRequests(providerId?: string, serverOrder = fal
 }
 export const getWarrantyRequestById = (id: string) => readById('warrantyRequests', id, parseRequest);
 export function updateWarrantyRequest(id: string, fields: Partial<Pick<WarrantyRequest, 'notes' | 'customerName' | 'customerPhone' | 'customerEmail' | 'applianceName'>>) {
-  return firestoreOperation('Save warranty request', async () => { assertId(id); await updateDoc(doc(db, 'warrantyRequests', id), { ...fields, updatedAt: serverTimestamp() }); });
+  return firestoreOperation('Save warranty request', async () => {
+    assertId(id);
+    const reference = doc(db, 'warrantyRequests', id);
+    await runTransaction(db, async transaction => {
+      const snapshot = await transaction.get(reference);
+      if (!snapshot.exists()) throw new Error('Warranty request not found.');
+      assertRequestEditable(parseRequest(snapshot.id, snapshot.data()).status);
+      transaction.update(reference, { ...fields, updatedAt: serverTimestamp() });
+    });
+  });
+}
+export function saveWarrantyVerification(id: string, verificationNotes: string, modelSerialConfirmed: boolean) {
+  return firestoreOperation('Save warranty verification', async () => {
+    assertId(id);
+    const reference = doc(db, 'warrantyRequests', id);
+    await runTransaction(db, async transaction => {
+      const snapshot = await transaction.get(reference);
+      if (!snapshot.exists()) throw new Error('Warranty request not found.');
+      assertRequestEditable(parseRequest(snapshot.id, snapshot.data()).status);
+      transaction.update(reference, { verificationNotes: verificationNotes.trim(), modelSerialConfirmed, updatedAt: serverTimestamp() });
+    });
+  });
 }
 export function deleteWarrantyRequest(id: string) {
   // Only deletes this request. Related records are managed explicitly by the caller/customer module.
@@ -46,12 +66,12 @@ export async function getRequestSummaries(providerId?: string): Promise<{ items:
     applianceName: appliance?.name || request.applianceName || 'Appliance unavailable', applianceBrand: appliance?.brand || '',
   }; }), warnings: [...new Set(warnings)] };
 }
-export function getWarrantyCaseById(id: string, includeDocuments = true): Promise<WarrantyCase> {
+export function getWarrantyCaseById(id: string): Promise<WarrantyCase> {
   return firestoreOperation('Load request details', async () => {
     const request = await getWarrantyRequestById(id);
     if (!request) throw new Error('Warranty request not found.');
     if (!request.applianceId || !request.warrantyId || !request.customerId) throw new Error('This request needs customerId, applianceId and warrantyId from the customer module.');
-    const [appliance, warranty, documents] = await Promise.all([getApplianceById(request.applianceId), getWarrantyById(request.warrantyId), includeDocuments ? getDocumentsByWarrantyRequest(id) : Promise.resolve([])]);
+    const [appliance, warranty, documents] = await Promise.all([getApplianceById(request.applianceId), getWarrantyById(request.warrantyId), Promise.resolve([])]);
     if (!appliance) throw new Error('Related appliance ' + request.applianceId + ' was not found.');
     if (!warranty) throw new Error('Related warranty ' + request.warrantyId + ' was not found.');
     if (appliance.customerId !== request.customerId || warranty.applianceId !== request.applianceId) throw new Error('The linked customer, appliance and warranty IDs do not match.');
@@ -66,6 +86,7 @@ export function saveWarrantyCaseDetails(item: WarrantyCase) {
       const [requestSnapshot, applianceSnapshot, warrantySnapshot] = await Promise.all([transaction.get(requestRef), transaction.get(applianceRef), transaction.get(warrantyRef)]);
       if (!requestSnapshot.exists() || !applianceSnapshot.exists() || !warrantySnapshot.exists()) throw new Error('A linked record was deleted. Reload the request.');
       const current = parseRequest(requestSnapshot.id, requestSnapshot.data());
+      assertRequestEditable(current.status);
       if (current.applianceId !== item.appliance.id || current.warrantyId !== item.warranty.id || current.customerId !== item.customer.id) throw new Error('Request links changed. Reload before saving.');
       if (applianceSnapshot.data().customerId !== current.customerId || warrantySnapshot.data().applianceId !== current.applianceId) throw new Error('Related record ownership changed. Reload before saving.');
       transaction.update(requestRef, { customerName: item.customer.name, customerPhone: item.customer.phone, customerEmail: item.customer.email, applianceName: item.appliance.name, updatedAt: serverTimestamp() });
@@ -81,30 +102,46 @@ export function updateWarrantyRequestStatus(id: string, status: RequestStatus, n
     assertId(id);
     const storedStatus = toFirestoreStatus(status);
     // A transaction re-reads the eligibility records before approving. Rules remain the authorization boundary.
-    const documentIds = status === 'Approved' ? (await getDocumentsByWarrantyRequest(id)).map(item => item.id) : [];
     const requestRef = doc(db, 'warrantyRequests', id), notificationRef = doc(collection(db, 'providerNotifications'));
     await runTransaction(db, async transaction => {
       const snapshot = await transaction.get(requestRef);
       if (!snapshot.exists()) throw new Error('Warranty request not found.');
       const current = parseRequest(snapshot.id, snapshot.data());
+      if (current.status === status && current.notes === notes.trim()) return;
+      assertRequestEditable(current.status);
       if (status === 'Approved') {
         assertId(current.applianceId); assertId(current.warrantyId);
-        const [applianceSnapshot, warrantySnapshot, ...documentSnapshots] = await Promise.all([
+        const [applianceSnapshot, warrantySnapshot] = await Promise.all([
           transaction.get(doc(db, 'appliances', current.applianceId)), transaction.get(doc(db, 'warranties', current.warrantyId)),
-          ...documentIds.map(documentId => transaction.get(doc(db, 'warrantyDocuments', documentId))),
         ]);
         if (!applianceSnapshot.exists() || !warrantySnapshot.exists()) throw new Error('Appliance or warranty details are missing.');
         const appliance = parseAppliance(applianceSnapshot.id, applianceSnapshot.data()), warranty = parseWarranty(warrantySnapshot.id, warrantySnapshot.data());
-        const documents = documentSnapshots.filter(item => item.exists()).map(item => parseDocument(item.id, item.data()!)).filter(item => item.warrantyRequestId === id);
-        const item: WarrantyCase = { request: current, appliance, warranty, documents, customer: { id: current.customerId, name: current.customerName, phone: current.customerPhone, email: current.customerEmail } };
-        if (appliance.customerId !== current.customerId || warranty.applianceId !== current.applianceId || !eligibility(item).every(check => check.checked)) throw new Error('Approval requires current, valid warranty coverage and verified documents.');
+        const item: WarrantyCase = { request: current, appliance, warranty, documents: [], customer: { id: current.customerId, name: current.customerName, phone: current.customerPhone, email: current.customerEmail } };
+        if (appliance.customerId !== current.customerId || warranty.applianceId !== current.applianceId || !eligibility(item).every(check => check.checked) || !current.modelSerialConfirmed) throw new Error('Approval requires a valid warranty period, both uploaded document flags, a completed document review, and confirmed model/serial details.');
       }
       if (current.status === status && current.notes === notes.trim()) return;
-      transaction.update(requestRef, { status: storedStatus, notes: notes.trim(), updatedAt: serverTimestamp() });
-      transaction.set(notificationRef, { providerId: current.providerId, warrantyRequestId: id, customerName: current.customerName,
-        title: status === 'More Information Required' ? 'More information requested from customer' : 'Warranty request status updated to ' + status,
-        message: notes.trim() || 'The warranty request status has changed.', isRead: false, createdAt: serverTimestamp(),
+      transaction.update(requestRef, { status: storedStatus, notes: notes.trim(), verificationNotes: notes.trim(), documentsReviewed: current.documentsReviewed,
+        updatedAt: serverTimestamp(), ...(['Approved', 'Rejected'].includes(status) ? { verifiedAt: serverTimestamp() } : {}) });
+      const title = status === 'Approved' ? 'Warranty request approved' : status === 'Rejected' ? 'Warranty request rejected' : status === 'More Information Required' ? 'More information required' : 'Warranty request status updated';
+      const message = status === 'Approved' ? `Warranty request ${id} has been approved.` : status === 'Rejected' ? `Warranty request ${id} has been rejected.` : status === 'More Information Required' ? `More information is required for warranty request ${id}.` : `Warranty request ${id} is pending.`;
+      transaction.set(notificationRef, { providerId: current.providerId, customerId: current.customerId, warrantyRequestId: id, customerName: current.customerName,
+        title, message, isRead: false, createdAt: serverTimestamp(),
         ...(typeof snapshot.data().developmentSeed === 'string' ? { developmentSeed: snapshot.data().developmentSeed } : {}) });
+    });
+  });
+}
+
+/** Persist only a complete, explicit provider confirmation; checkbox edits stay local. */
+export function confirmWarrantyDocumentsReviewed(id: string, confirmations: Pick<WarrantyRequest, 'warrantyCardUploaded' | 'purchaseReceiptUploaded' | 'documentsReviewed'>) {
+  return firestoreOperation('Save document review', async () => {
+    assertId(id);
+    if (confirmations.warrantyCardUploaded !== true || confirmations.purchaseReceiptUploaded !== true || confirmations.documentsReviewed !== true) throw new Error('Select all three confirmations before continuing.');
+    const reference = doc(db, 'warrantyRequests', id);
+    await runTransaction(db, async transaction => {
+      const snapshot = await transaction.get(reference);
+      if (!snapshot.exists()) throw new Error('Warranty request not found.');
+      assertRequestEditable(parseRequest(snapshot.id, snapshot.data()).status);
+      transaction.update(reference, { warrantyCardUploaded: true, purchaseReceiptUploaded: true, documentsReviewed: true, updatedAt: serverTimestamp() });
     });
   });
 }

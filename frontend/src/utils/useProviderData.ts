@@ -1,16 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import type { WarrantyCase } from '../types/provider';
 import { getWarrantyCaseById, getWarrantyRequestById } from '../services/warrantyRequestService';
 import { firestoreError } from './providerFirestoreMapping';
-import { getDocumentsByWarrantyRequest } from '../services/warrantyDocumentService';
 
 async function requireRequest(id: string) { const request = await getWarrantyRequestById(id); if (!request) throw new Error('Warranty request not found.'); return request; }
-async function requestDocuments(id: string) { const [request, documents] = await Promise.all([requireRequest(id), getDocumentsByWarrantyRequest(id)]); return { request, documents }; }
 export const useWarrantyCase = (id: string) => useRecord<WarrantyCase>(id, getWarrantyCaseById);
-const loadWarrantyDetails = (id: string) => getWarrantyCaseById(id, false);
+const loadWarrantyDetails = (id: string) => getWarrantyCaseById(id);
 export const useWarrantyDetails = (id: string) => useRecord(id, loadWarrantyDetails);
 export const useWarrantyRequest = (id: string) => useRecord(id, requireRequest);
-export const useRequestDocuments = (id: string) => useRecord(id, requestDocuments);
 function useRecord<T>(warrantyRequestId: string, loader: (id: string) => Promise<T>) {
   const [item, setItem] = useState<T | null>(null), [loading, setLoading] = useState(true), [error, setError] = useState('');
   const sequence = useRef(0), loadedId = useRef<string | null>(null);
@@ -20,7 +18,7 @@ function useRecord<T>(warrantyRequestId: string, loader: (id: string) => Promise
     catch (cause) { if (current === sequence.current) setError(firestoreError(cause)); return null; }
     finally { if (current === sequence.current) setLoading(false); }
   }, [warrantyRequestId, loader]);
-  useEffect(() => { setItem(null); void reload(); return () => { sequence.current++; }; }, [reload]);
+  useFocusEffect(useCallback(() => { setItem(null); void reload(); return () => { sequence.current++; }; }, [reload]));
   return { item: loadedId.current === warrantyRequestId ? item : null, loading, error, reload };
 }
 export function useProviderMutation() {

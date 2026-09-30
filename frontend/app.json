@@ -3,9 +3,14 @@
     "name": "FixMate",
     "slug": "home-maintenance-reminder-app",
     "version": "1.0.0",
-    "platforms": ["android", "ios", "web"],
+    "platforms": [
+      "android",
+      "ios",
+      "web"
+    ],
     "web": {
-      "bundler": "metro"
+      "bundler": "metro",
+      "favicon": "./assets/fixmate-logo.png"
     }
   }
 }

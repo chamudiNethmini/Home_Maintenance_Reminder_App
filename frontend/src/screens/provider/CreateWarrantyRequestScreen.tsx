@@ -8,7 +8,6 @@ import { useProviderMutation } from '../../utils/useProviderData';
 import { requestFieldLabels, validateWarrantyRequestForm, type WarrantyRequestForm } from '../../utils/warrantyRequestForm';
 
 const emptyForm: WarrantyRequestForm = { customerName: '', customerPhone: '', customerEmail: '', applianceName: '', brand: '', model: '', serialNumber: '', purchaseDate: '', warrantyExpiryDate: '', notes: '' };
-
 export default function CreateWarrantyRequestScreen({ navigation }: ProviderScreenProps<'CreateWarrantyRequest'>) {
   const [form, setForm] = useState<WarrantyRequestForm>(emptyForm), [validation, setValidation] = useState('');
   const { providerId, refreshRequests, setCreatedRequestId } = useProviderModule();

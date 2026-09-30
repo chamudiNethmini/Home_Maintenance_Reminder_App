@@ -34,7 +34,7 @@ test('creation validates required contact fields and real calendar dates', () =>
 test('creation commits three linked records with timestamps, pending status and unique customer IDs', async () => {
   const fake = fakeFirestore();
   const service = fake.service('createWarrantyCase');
-  const result = await service.createWarrantyCase(newRequest);
+  const result = await service.createWarrantyCase(newRequest, {});
   assert.equal(fake.records.size, 3);
   const request = fake.records.get('warrantyRequests/' + result.warrantyRequestId);
   const appliance = fake.records.get('appliances/' + result.applianceId);
@@ -45,10 +45,12 @@ test('creation commits three linked records with timestamps, pending status and 
   assert.equal(request.applianceId, result.applianceId); assert.equal(warranty.applianceId, result.applianceId);
   assert.equal(request.warrantyId, result.warrantyId); assert.equal(warranty.status, 'active');
   assert.equal(warranty.modelCovered, null); assert.equal(appliance.warrantyExpiryDate, newRequest.warrantyExpiryDate);
+  assert.equal(request.documentsReviewed, false);
+  assert.equal(request.warrantyCardUploaded, false); assert.equal(request.purchaseReceiptUploaded, false);
   for (const record of [request, appliance, warranty]) {
     assert.deepEqual(record.createdAt, { serverTimestamp: true }); assert.deepEqual(record.updatedAt, { serverTimestamp: true });
   }
-  const second = await service.createWarrantyCase(newRequest);
+  const second = await service.createWarrantyCase(newRequest, {});
   assert.notEqual(second.customerId, result.customerId);
   const assigned = await service.createWarrantyCase(newRequest, { customerId: 'shared-customer', providerId: 'assigned-provider' });
   assert.equal(fake.records.get('warrantyRequests/' + assigned.warrantyRequestId).providerId, 'assigned-provider');
@@ -58,10 +60,10 @@ test('denied creation leaves no partial records and invalid forms never write', 
   const fake = fakeFirestore(); fake.setFailWrite(true);
   const original = console.error; const logged = []; console.error = (...args) => logged.push(args);
   try {
-    await assert.rejects(() => fake.service('createWarrantyCase').createWarrantyCase(newRequest), /permission/i);
+    await assert.rejects(() => fake.service('createWarrantyCase').createWarrantyCase(newRequest, {}), /permission/i);
     assert.equal(fake.records.size, 0); assert.equal(logged[0][1].code, 'permission-denied');
     fake.setFailWrite(false);
-    await assert.rejects(() => fake.service('createWarrantyCase').createWarrantyCase({ ...newRequest, customerEmail: '' }), /required/);
+    await assert.rejects(() => fake.service('createWarrantyCase').createWarrantyCase({ ...newRequest, customerEmail: '' }, {}), /required/);
     assert.equal(fake.records.size, 0);
   } finally { console.error = original; }
 });
@@ -94,7 +96,7 @@ function fakeFirestore() {
     addDoc: async (ref, data) => { const created = { path: ref.path + '/created-' + ++nextId }; write('set', created, data); return { id: created.path.split('/').at(-1) }; },
     updateDoc: async (ref, data) => write('update', ref, data),
     deleteDoc: async ref => write('delete', ref),
-    writeBatch: () => { const writes = []; return { set: (ref, data) => writes.push(['set', ref, data]), update: (ref, data) => writes.push(['update', ref, data]), commit: async () => { if (failWrite) throw Object.assign(new Error('Missing permissions'), { code: 'permission-denied' }); writes.forEach(args => write(...args)); } }; },
+    writeBatch: () => { const writes = []; return { set: (ref, data) => writes.push(['set', ref, data]), update: (ref, data) => writes.push(['update', ref, data]), delete: ref => writes.push(['delete', ref]), commit: async () => { if (failWrite) throw Object.assign(new Error('Missing permissions'), { code: 'permission-denied' }); writes.forEach(args => write(...args)); } }; },
     runTransaction: async (_db, action) => {
       const writes = [];
       await action({ get: async ref => snapshot(ref), update: (ref, data) => writes.push(['update', ref, data]), set: (ref, data) => writes.push(['set', ref, data]), delete: ref => writes.push(['delete', ref]) });
@@ -102,13 +104,17 @@ function fakeFirestore() {
       writes.forEach(args => write(...args));
     },
   };
-  const overrides = { 'firebase/firestore': sdk, '../config/firebase': { db: { app: { options: { projectId: 'test-project' } } } } };
+  const overrides = {
+    'firebase/firestore': sdk,
+    '../config/firebase': { db: { app: { options: { projectId: 'test-project' } } } },
+
+  };
   const cache = new Map();
   return { records, operations, service: file => load('services/' + file + '.ts', overrides, cache), dev: () => load('dev/providerFirestoreTools.ts', overrides, cache), setFailWrite: value => { failWrite = value; } };
 }
 function fixture(fake) {
   const day = offset => new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10);
-  fake.records.set('warrantyRequests/r1', { customerId: 'c1', applianceId: 'a1', warrantyId: 'w1', providerId: null, status: 'pending', notes: '', customerName: 'Test Customer', customerPhone: '123', customerEmail: 'test@example.com', createdAt: Timestamp.now(), updatedAt: Timestamp.now() });
+  fake.records.set('warrantyRequests/r1', { customerId: 'c1', applianceId: 'a1', warrantyId: 'w1', providerId: null, status: 'pending', notes: '', customerName: 'Test Customer', customerPhone: '123', customerEmail: 'test@example.com', warrantyCardUploaded: true, purchaseReceiptUploaded: true, documentsReviewed: true, modelSerialConfirmed: true, verificationNotes: '', createdAt: Timestamp.now(), updatedAt: Timestamp.now() });
   fake.records.set('appliances/a1', { customerId: 'c1', name: 'Fridge', brand: 'Test', model: 'T1', serialNumber: 'S1', purchaseDate: day(-20) });
   fake.records.set('warranties/w1', { applianceId: 'a1', purchaseDate: day(-20), expiryDate: day(100), status: 'active', modelCovered: true });
   for (const [id, type] of [['d1', 'warranty_card'], ['d2', 'purchase_receipt']]) fake.records.set('warrantyDocuments/' + id, { warrantyRequestId: 'r1', type, fileName: id + '.pdf', fileUrl: 'https://example.com/' + id + '.pdf', verificationStatus: 'verified' });
@@ -136,26 +142,48 @@ test('read all requests has no 100-record cap and preserves missing timestamps',
 test('read details joins the selected IDs and uses request contact fields', async () => {
   const fake = fakeFirestore(); fixture(fake);
   const item = await fake.service('warrantyRequestService').getWarrantyCaseById('r1');
-  assert.equal(item.customer.name, 'Test Customer'); assert.equal(item.appliance.id, 'a1'); assert.equal(item.documents.length, 2);
+  assert.equal(item.customer.name, 'Test Customer'); assert.equal(item.appliance.id, 'a1'); assert.equal(item.documents.length, 0);
   assert.equal(workflow.eligibility(item).every(check => check.checked), true);
   fake.records.get('appliances/a1').customerId = 'another-customer';
   await assert.rejects(() => fake.service('warrantyRequestService').getWarrantyCaseById('r1'), /do not match/);
 });
 test('status update atomically writes canonical status, notes, timestamp and notification', async () => {
   const fake = fakeFirestore(); fixture(fake);
+  fake.records.delete('warrantyDocuments/d1'); fake.records.delete('warrantyDocuments/d2');
   await fake.service('warrantyRequestService').updateWarrantyRequestStatus('r1', 'Approved', ' Verified ');
   assert.equal(fake.records.get('warrantyRequests/r1').status, 'approved');
   assert.equal(fake.records.get('warrantyRequests/r1').notes, 'Verified');
   assert.deepEqual(fake.records.get('warrantyRequests/r1').updatedAt, { serverTimestamp: true });
+  assert.deepEqual(fake.records.get('warrantyRequests/r1').verifiedAt, { serverTimestamp: true });
   assert.equal([...fake.records.keys()].filter(key => key.startsWith('providerNotifications/')).length, 1);
+  const notification = [...fake.records.entries()].find(([key]) => key.startsWith('providerNotifications/'))[1];
+  assert.equal(notification.title, 'Warranty request approved');
+  assert.equal(notification.message, 'Warranty request r1 has been approved.');
   const before = fake.operations.length;
   await fake.service('warrantyRequestService').updateWarrantyRequestStatus('r1', 'Approved', 'Verified');
   assert.equal(fake.operations.length, before);
 });
-test('unverified documents block approval without writes', async () => {
-  const fake = fakeFirestore(); fixture(fake); fake.records.get('warrantyDocuments/d1').verificationStatus = 'pending';
+test('missing upload flag blocks approval without writes', async () => {
+  const fake = fakeFirestore(); fixture(fake); fake.records.get('warrantyRequests/r1').warrantyCardUploaded = false;
   await assert.rejects(() => fake.service('warrantyRequestService').updateWarrantyRequestStatus('r1', 'Approved', ''), /Approval requires/);
   assert.equal(fake.operations.length, 0);
+});
+test('approval also requires final document review and manual model/serial confirmation', async () => {
+  const fake = fakeFirestore(); fixture(fake);
+  const request = fake.records.get('warrantyRequests/r1');
+  request.documentsReviewed = false;
+  await assert.rejects(() => fake.service('warrantyRequestService').updateWarrantyRequestStatus('r1', 'Approved', ''), /completed document review/);
+  request.documentsReviewed = true; request.modelSerialConfirmed = false;
+  await assert.rejects(() => fake.service('warrantyRequestService').updateWarrantyRequestStatus('r1', 'Approved', ''), /model\/serial details/);
+  assert.equal(fake.operations.length, 0);
+});
+test('verification notes and model/serial confirmation persist without finalizing request status', async () => {
+  const fake = fakeFirestore(); fixture(fake);
+  await fake.service('warrantyRequestService').saveWarrantyVerification('r1', 'Serial matches card', true);
+  const request = fake.records.get('warrantyRequests/r1');
+  assert.equal(request.status, 'pending');
+  assert.equal(request.verificationNotes, 'Serial matches card');
+  assert.equal(request.modelSerialConfirmed, true);
 });
 test('permission failure rejects mutation and leaves notification/request unchanged', async () => {
   const fake = fakeFirestore(); fixture(fake); fake.setFailWrite(true);
@@ -165,16 +193,17 @@ test('permission failure rejects mutation and leaves notification/request unchan
 test('detail save updates contact and related data without replacing concurrent status', async () => {
   const fake = fakeFirestore(); fixture(fake);
   const service = fake.service('warrantyRequestService'), item = await service.getWarrantyCaseById('r1');
-  fake.records.get('warrantyRequests/r1').status = 'rejected'; item.customer.phone = '456'; item.appliance.model = 'T2';
+  fake.records.get('warrantyRequests/r1').status = 'more_information_required'; item.customer.phone = '456'; item.appliance.model = 'T2';
   await service.saveWarrantyCaseDetails(item);
-  assert.equal(fake.records.get('warrantyRequests/r1').status, 'rejected');
+  assert.equal(fake.records.get('warrantyRequests/r1').status, 'more_information_required');
   assert.equal(fake.records.get('warrantyRequests/r1').customerPhone, '456');
   assert.equal(fake.records.get('appliances/a1').model, 'T2');
 });
 test('document review and notification read states use persistent writes', async () => {
   const fake = fakeFirestore(); fixture(fake);
-  await fake.service('warrantyDocumentService').updateDocumentVerificationStatus('d1', 'Rejected');
+  await fake.service('warrantyDocumentService').updateDocumentVerificationStatus('d1', 'rejected');
   assert.equal(fake.records.get('warrantyDocuments/d1').verificationStatus, 'rejected');
+  assert.equal(fake.records.get('warrantyRequests/r1').documentsReviewed, false);
   fake.records.set('providerNotifications/n1', { providerId: 'p1', isRead: false });
   fake.records.set('providerNotifications/n2', { providerId: 'p2', isRead: false });
   const service = fake.service('providerNotificationService');
@@ -210,4 +239,50 @@ test('explicit development seeding is non-overwriting and cleanup requires its m
     await assert.rejects(() => tools.deleteProviderTestData({ projectId: 'test-project', confirm: 'DELETE DEVELOPMENT TEST DATA' }), /Refusing to delete/);
     assert.equal(fake.records.size, 17);
   } finally { delete globalThis.__DEV__; }
+});
+
+test('manual review saves all flags together and rejects any unchecked confirmation', async () => {
+ const fake = fakeFirestore(); fixture(fake);
+ const request = fake.records.get('warrantyRequests/r1');
+ request.warrantyCardUploaded = false; request.purchaseReceiptUploaded = false; request.documentsReviewed = false;
+ const confirmed = { warrantyCardUploaded: true, purchaseReceiptUploaded: true, documentsReviewed: true };
+ const service = fake.service('warrantyRequestService');
+ for (const field of Object.keys(confirmed)) {
+   await assert.rejects(() => service.confirmWarrantyDocumentsReviewed('r1', { ...confirmed, [field]: false }), /all three/);
+   assert.equal(fake.operations.length, 0);
+ }
+ await service.confirmWarrantyDocumentsReviewed('r1', confirmed);
+ const saved = fake.records.get('warrantyRequests/r1');
+ for (const field of Object.keys(confirmed)) assert.equal(saved[field], true);
+ assert.deepEqual(saved.updatedAt, { serverTimestamp: true });
+ assert.equal(saved.status, 'pending');
+ await assert.rejects(() => service.confirmWarrantyDocumentsReviewed('missing', confirmed), /not found/);
+});
+test('missing legacy flags fail closed and expiry blocks approval without document records', async () => {
+ const fake = fakeFirestore(); fixture(fake);
+ const request = fake.records.get('warrantyRequests/r1'); delete request.warrantyCardUploaded;
+ assert.equal(mapping.parseRequest('r1', request).warrantyCardUploaded, false);
+ await assert.rejects(() => fake.service('warrantyRequestService').updateWarrantyRequestStatus('r1', 'Approved', ''), /Approval requires/);
+ request.warrantyCardUploaded = true; fake.records.get('warranties/w1').expiryDate = '2000-01-01';
+ await assert.rejects(() => fake.service('warrantyRequestService').updateWarrantyRequestStatus('r1', 'Approved', ''), /Approval requires/);
+ assert.equal(fake.operations.length, 0);
+});
+
+test('finalized requests reject edits, review, verification and repeated decisions without writes', async () => {
+ for (const status of ['approved', 'rejected']) {
+  const fake = fakeFirestore(); fixture(fake); const service = fake.service('warrantyRequestService');
+  const stale = await service.getWarrantyCaseById('r1');
+  fake.records.get('warrantyRequests/r1').status = status;
+  await assert.rejects(() => service.saveWarrantyCaseDetails(stale), /finalized/);
+  await assert.rejects(() => service.updateWarrantyRequest('r1', { notes: 'changed' }), /finalized/);
+  await assert.rejects(() => service.saveWarrantyVerification('r1', 'changed', true), /finalized/);
+  await assert.rejects(() => service.confirmWarrantyDocumentsReviewed('r1', { warrantyCardUploaded: true, purchaseReceiptUploaded: true, documentsReviewed: true }), /finalized/);
+  await assert.rejects(() => service.updateWarrantyRequestStatus('r1', 'Pending', 'restart'), /finalized/);
+  await assert.rejects(() => service.updateWarrantyRequestStatus('r1', 'Approved', 'repeat'), /finalized/);
+  const details = await service.getWarrantyCaseById('r1');
+  assert.equal(workflow.isFinalized(details.request.status), true);
+  assert.equal(fake.operations.length, 0);
+ }
+ assert.equal(workflow.isFinalized('Pending'), false);
+ assert.equal(workflow.isFinalized('More Information Required'), false);
 });

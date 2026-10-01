@@ -7,7 +7,6 @@ export const providerLinking: LinkingOptions<ProviderStackParams> = {
   prefixes: [],
   config: {
     screens: {
-      WarrantyProviderEntry: 'provider-entry',
       CreateWarrantyRequest: 'create-warranty-request',
       ProviderHome: {
         screens: {

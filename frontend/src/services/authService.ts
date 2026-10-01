@@ -1,3 +1,4 @@
+import type { User } from 'firebase/auth';
 import {
   signInWithEmailAndPassword,
   signOut,
@@ -42,43 +43,8 @@ export async function loginUser(
     const firebaseUser =
       credential.user;
 
-    // Find matching user document in Firestore
-    const userRef = doc(
-      db,
-      'users',
-      firebaseUser.uid,
-    );
-
-    const userSnapshot =
-      await getDoc(userRef);
-
-    if (!userSnapshot.exists()) {
-      await signOut(auth);
-
-      throw new Error(
-        'User profile was not found.',
-      );
-    }
-
-    const data =
-      userSnapshot.data();
-
-    const userRole =
-      data.role as UserRole;
-
-    // Check valid role
-    if (
-      userRole !== 'homeowner' &&
-      userRole !== 'technician' &&
-      userRole !== 'provider'
-    ) {
-      await signOut(auth);
-
-      throw new Error(
-        'Invalid user role.',
-      );
-    }
-
+    const profile = await getUserProfile(firebaseUser);
+    const userRole = profile.role;
     // Check selected role matches account role
     if (userRole !== expectedRole) {
       await signOut(auth);
@@ -92,21 +58,7 @@ export async function loginUser(
       );
     }
 
-    return {
-      uid: firebaseUser.uid,
-
-      name:
-        typeof data.name === 'string'
-          ? data.name
-          : '',
-
-      email:
-        typeof data.email === 'string'
-          ? data.email
-          : firebaseUser.email ?? '',
-
-      role: userRole,
-    };
+    return profile;
   } catch (error: any) {
     // Keep our custom errors
     if (
@@ -169,4 +121,12 @@ function getRoleName(
   }
 
   return 'Warranty Provider';
+}
+/** Reuse the shared users/{uid} role contract for restored sessions. */
+export async function getUserProfile(user: User): Promise<LoggedInUser> {
+  const snapshot = await getDoc(doc(db, 'users', user.uid));
+  if (!snapshot.exists()) throw new Error('User profile was not found.');
+  const data = snapshot.data(), role = data.role;
+  if (role !== 'provider' && role !== 'homeowner' && role !== 'technician') throw new Error('Invalid user role.');
+  return { uid: user.uid, role, name: user.displayName || (typeof data.name === 'string' ? data.name : ''), email: user.email || (typeof data.email === 'string' ? data.email : '') };
 }

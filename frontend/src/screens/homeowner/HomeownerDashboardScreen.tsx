@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+
 import {
   Pressable,
   ScrollView,
@@ -6,7 +7,12 @@ import {
   Text,
   View,
 } from 'react-native';
+
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import type {
+  HomeownerScreenProps,
+} from '../../navigation/homeownerTypes';
 
 // Exact FixMate colour palette
 const COLORS = {
@@ -21,7 +27,9 @@ const COLORS = {
   illustrationLine: '#CEDCE3',
 };
 
-export default function HomeownerDashboardScreen() {
+export default function HomeownerDashboardScreen({
+  navigation,
+}: HomeownerScreenProps<'Dashboard'>) {
   const insets = useSafeAreaInsets();
 
   return (
@@ -60,7 +68,12 @@ export default function HomeownerDashboardScreen() {
               />
             </Pressable>
 
-            <Pressable style={styles.profileButton}>
+            <Pressable
+  style={styles.profileButton}
+  onPress={() =>
+    navigation.navigate('Profile')
+  }
+>
               <Ionicons
                 name="person-outline"
                 size={22}
@@ -197,7 +210,12 @@ export default function HomeownerDashboardScreen() {
 
         <View style={styles.quickActionsGrid}>
           {/* Add Appliance */}
-          <Pressable style={styles.quickActionCard}>
+          <Pressable
+            style={styles.quickActionCard}
+            onPress={() =>
+              navigation.navigate('AddAppliance')
+            }
+          >
             <View style={styles.quickActionIcon}>
               <Ionicons
                 name="add-circle-outline"
@@ -215,7 +233,7 @@ export default function HomeownerDashboardScreen() {
             </Text>
           </Pressable>
 
-          {/* Calendar */}
+          {/* Calendar - connect later */}
           <Pressable style={styles.quickActionCard}>
             <View style={styles.quickActionIcon}>
               <Ionicons
@@ -234,8 +252,13 @@ export default function HomeownerDashboardScreen() {
             </Text>
           </Pressable>
 
-          {/* Appliances */}
-          <Pressable style={styles.quickActionCard}>
+          {/* My Appliances */}
+          <Pressable
+            style={styles.quickActionCard}
+            onPress={() =>
+              navigation.navigate('MyAppliances')
+            }
+          >
             <View style={styles.quickActionIcon}>
               <Ionicons
                 name="apps-outline"
@@ -253,7 +276,7 @@ export default function HomeownerDashboardScreen() {
             </Text>
           </Pressable>
 
-          {/* Reminders */}
+          {/* Reminders - connect later */}
           <Pressable style={styles.quickActionCard}>
             <View style={styles.quickActionIcon}>
               <Ionicons
@@ -279,8 +302,10 @@ export default function HomeownerDashboardScreen() {
         style={[
           styles.bottomNavigation,
           {
-            paddingBottom:
-              Math.max(insets.bottom, 10),
+            paddingBottom: Math.max(
+              insets.bottom,
+              10,
+            ),
           },
         ]}
       >
@@ -298,7 +323,12 @@ export default function HomeownerDashboardScreen() {
         </Pressable>
 
         {/* Appliances */}
-        <Pressable style={styles.navigationItem}>
+        <Pressable
+          style={styles.navigationItem}
+          onPress={() =>
+            navigation.navigate('MyAppliances')
+          }
+        >
           <Ionicons
             name="apps-outline"
             size={22}
@@ -310,7 +340,7 @@ export default function HomeownerDashboardScreen() {
           </Text>
         </Pressable>
 
-        {/* Calendar */}
+        {/* Calendar - connect later */}
         <Pressable style={styles.navigationItem}>
           <Ionicons
             name="calendar-outline"
@@ -323,18 +353,24 @@ export default function HomeownerDashboardScreen() {
           </Text>
         </Pressable>
 
-        {/* Profile */}
-        <Pressable style={styles.navigationItem}>
-          <Ionicons
-            name="person-outline"
-            size={22}
-            color={COLORS.secondary}
-          />
+        {/* Profile - connect later */}
+        <Pressable
+  style={styles.navigationItem}
+  onPress={() =>
+    navigation.navigate('Profile')
+  }
+>
+  <Ionicons
+    name="person-outline"
+    size={22}
+    color={COLORS.secondary}
+  />
 
-          <Text style={styles.navigationText}>
-            Profile
-          </Text>
-        </Pressable>
+  <Text style={styles.navigationText}>
+    Profile
+  </Text>
+</Pressable>
+        
       </View>
     </View>
   );
@@ -355,7 +391,6 @@ const styles = StyleSheet.create({
   },
 
   // Header
-
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -415,7 +450,6 @@ const styles = StyleSheet.create({
   },
 
   // Hero
-
   heroCard: {
     minHeight: 150,
     backgroundColor: COLORS.preview,
@@ -463,7 +497,6 @@ const styles = StyleSheet.create({
   },
 
   // Alert
-
   alertCard: {
     marginTop: 14,
     padding: 14,
@@ -517,7 +550,6 @@ const styles = StyleSheet.create({
   },
 
   // Section Header
-
   sectionHeader: {
     marginTop: 25,
     marginBottom: 11,
@@ -539,7 +571,6 @@ const styles = StyleSheet.create({
   },
 
   // Maintenance Cards
-
   maintenanceCard: {
     backgroundColor: COLORS.white,
     borderRadius: 15,
@@ -595,7 +626,6 @@ const styles = StyleSheet.create({
   },
 
   // Quick Actions
-
   quickActionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -642,8 +672,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // Bottom navigation
-
+  // Bottom Navigation
   bottomNavigation: {
     position: 'absolute',
     bottom: 0,

@@ -18,14 +18,14 @@ export function filterRequests(requests: RequestSummary[], search: string, statu
     [item.request.id, item.customerName, item.applianceName, item.applianceBrand].some(value => value.toLowerCase().includes(term)));
 }
 export function eligibility(item: WarrantyCase, today = new Date().toISOString().slice(0, 10)) {
-  const has = (type: string) => item.documents.some(doc => doc.type === type && !!doc.fileUrl);
   return [
-    { label: 'Valid warranty period', checked: validDate(item.warranty.purchaseDate) && validDate(item.warranty.expiryDate) && item.warranty.purchaseDate <= today && today <= item.warranty.expiryDate },
-    { label: 'Receipt available', checked: has('Purchase Receipt') },
-    { label: 'Model covered', checked: item.warranty.modelCovered === true },
-    { label: 'Documents complete', checked: has('Warranty Card') && has('Purchase Receipt') && item.documents.every(doc => doc.verificationStatus === 'Verified') },
+    { label: 'Valid warranty period', checked: validDate(item.warranty.expiryDate) && today <= item.warranty.expiryDate },
+    { label: 'Warranty card available', checked: item.request.warrantyCardUploaded },
+    { label: 'Purchase receipt available', checked: item.request.purchaseReceiptUploaded },
+    { label: 'Documents reviewed', checked: item.request.documentsReviewed },
   ];
 }
+
 export function formatDate(value: string) {
   if (!value || Number.isNaN(Date.parse(value))) return 'Date unavailable';
   return new Date(value.length === 10 ? value + 'T12:00:00' : value).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -33,3 +33,6 @@ export function formatDate(value: string) {
 export function validDate(value: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value)) && new Date(value).toISOString().slice(0, 10) === value;
 }
+
+export function isFinalized(status: RequestStatus) { return status === 'Approved' || status === 'Rejected'; }
+export function assertRequestEditable(status: RequestStatus) { if (isFinalized(status)) throw new Error('This warranty request is finalized and cannot be edited.'); }

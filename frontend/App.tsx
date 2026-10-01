@@ -5,9 +5,8 @@ import {
 } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'react-native';
-
-import RootNavigator from './src/navigation/RootNavigator';
-
+import ProviderNavigator from './src/navigation/ProviderNavigator';
+import { providerLinking } from './src/navigation/providerLinking';
 import { ProviderModuleProvider } from './src/components/provider/ProviderContext';
 import { colors } from './src/components/provider/ProviderUI';
 
@@ -56,8 +55,8 @@ export default function App() {
       <StatusBar barStyle="dark-content" />
 
       <ProviderModuleProvider>
-        <NavigationContainer theme={theme}>
-          <RootNavigator />
+        <NavigationContainer theme={theme} linking={providerLinking}>
+          <ProviderNavigator />
         </NavigationContainer>
       </ProviderModuleProvider>
     </SafeAreaProvider>

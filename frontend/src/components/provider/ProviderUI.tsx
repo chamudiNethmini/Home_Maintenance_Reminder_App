@@ -1,19 +1,22 @@
 import type { ComponentProps, ReactNode } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
+import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 export const colors = { navy: '#103851', teal: '#087F80', cyan: '#0EA5C6', background: '#F4F8FA', border: '#DEE8ED', muted: '#58717F', white: '#FFFFFF', danger: '#AC3546' };
 export function Icon({ name, color = colors.teal, size = 22 }: { name: ComponentProps<typeof Ionicons>['name']; color?: string; size?: number }) { return <Ionicons name={name} size={size} color={color} />; }
 export function Brand({ large = false }: { large?: boolean }) {
-  // Replace the fallback with Image + require('../../../assets/fixmate-logo.png') when the asset is supplied.
-  return <View accessibilityLabel="FixMate" style={[ui.brand, large && { flexDirection: 'column', gap: 12 }]}><View style={{ width: large ? 80 : 46, height: large ? 80 : 46, borderRadius: large ? 24 : 14, backgroundColor: '#DDF2EF', alignItems: 'center', justifyContent: 'center' }}><Icon name="home-outline" size={large ? 44 : 28} /></View><View><Text style={[ui.brandName, large && { fontSize: 32 }]}>Fix<Text style={{ color: colors.teal }}>Mate</Text></Text>{!large && <Text style={ui.caption}>WARRANTY PROVIDER</Text>}</View></View>;
+  return <View style={[ui.brand, { flexShrink: 1 }]}>
+    <Image source={require('../../../assets/fixmate-logo.png')} accessibilityLabel="FixMate logo" resizeMode="contain"
+      style={{ width: large ? 180 : 72, maxWidth: '100%', aspectRatio: 1, flexShrink: 1 }} />
+    {!large && <Text style={[ui.caption, { flexShrink: 1 }]}>WARRANTY PROVIDER</Text>}
+  </View>;
 }
-export function Page({ children, title, subtitle, action }: { children: ReactNode; title: string; subtitle?: string; action?: ReactNode }) {
+export function Page({ children, title, subtitle, action, singleLineTitle = false }: { children: ReactNode; title: string; subtitle?: string; action?: ReactNode; singleLineTitle?: boolean }) {
   const insets = useSafeAreaInsets();
   return <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.background }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
     <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 20, paddingTop: 18 + insets.top, paddingBottom: 32 + insets.bottom, flexGrow: 1 }}>
       <View style={ui.content}><View style={ui.between}><Brand /><View style={ui.demo}><Text style={ui.demoText}>FIRESTORE</Text></View></View>
-        <View style={ui.between}><View style={{ flex: 1, gap: 7 }}><Text accessibilityRole="header" style={ui.heading}>{title}</Text>{subtitle && <Text style={ui.subtitle}>{subtitle}</Text>}</View>{action}</View>{children}
+        <View style={singleLineTitle ? { gap: 12 } : ui.between}><View style={singleLineTitle ? { gap: 7, width: '100%' } : { flex: 1, gap: 7 }}><Text accessibilityRole="header" numberOfLines={singleLineTitle ? 1 : undefined} ellipsizeMode="tail" adjustsFontSizeToFit={singleLineTitle} minimumFontScale={0.7} style={[ui.heading, singleLineTitle && { fontSize: 20, letterSpacing: -0.4, flexShrink: 1 }]}>{title}</Text>{subtitle && <Text style={ui.subtitle}>{subtitle}</Text>}</View>{singleLineTitle && action ? <View style={{ alignSelf: 'flex-end' }}>{action}</View> : action}</View>{children}
       </View>
     </ScrollView>
   </KeyboardAvoidingView>;

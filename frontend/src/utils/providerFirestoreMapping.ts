@@ -17,6 +17,9 @@ export function parseRequest(id: string, data: RecordData): WarrantyRequest {
   return { id, customerId: textValue(data.customerId), applianceId: textValue(data.applianceId), warrantyId: textValue(data.warrantyId),
     providerId: textValue(data.providerId) || null, status: requestStatus(data.status), notes: textValue(data.notes),
     createdAt: dateValue(data.createdAt), updatedAt: dateValue(data.updatedAt),
+    warrantyCardUploaded: data.warrantyCardUploaded === true, purchaseReceiptUploaded: data.purchaseReceiptUploaded === true,
+    documentsReviewed: data.documentsReviewed === true, verificationNotes: textValue(data.verificationNotes),
+    modelSerialConfirmed: data.modelSerialConfirmed === true, verifiedAt: dateValue(data.verifiedAt),
     customerName: textValue(data.customerName) || textValue(customer.name), customerPhone: textValue(data.customerPhone) || textValue(customer.phone),
     customerEmail: textValue(data.customerEmail) || textValue(customer.email), applianceName: textValue(data.applianceName) };
 }
@@ -31,12 +34,13 @@ export function parseWarranty(id: string, data: RecordData): Warranty {
 export function parseDocument(id: string, data: RecordData): WarrantyDocument {
   const type = textValue(data.type).toLowerCase().replaceAll('_', ' ');
   const status = textValue(data.verificationStatus).toLowerCase();
-  return { id, warrantyRequestId: textValue(data.warrantyRequestId), type: type === 'warranty card' ? 'Warranty Card' : type === 'purchase receipt' ? 'Purchase Receipt' : 'Other',
+  return { id, warrantyRequestId: textValue(data.warrantyRequestId), type: type === 'warranty card' ? 'warranty_card' : type === 'purchase receipt' ? 'purchase_receipt' : 'other',
     fileName: textValue(data.fileName), fileUrl: textValue(data.fileUrl) || null,
-    verificationStatus: status === 'verified' ? 'Verified' : status === 'rejected' ? 'Rejected' : 'Pending' };
+    verificationStatus: status === 'verified' ? 'verified' : status === 'rejected' ? 'rejected' : 'pending',
+    createdAt: dateValue(data.createdAt), updatedAt: dateValue(data.updatedAt) };
 }
 export function parseNotification(id: string, data: RecordData): ProviderNotification {
-  return { id, providerId: textValue(data.providerId) || null, warrantyRequestId: textValue(data.warrantyRequestId), customerName: textValue(data.customerName),
+  return { id, providerId: textValue(data.providerId) || null, customerId: textValue(data.customerId) || null, warrantyRequestId: textValue(data.warrantyRequestId), customerName: textValue(data.customerName),
     title: textValue(data.title), message: textValue(data.message), isRead: data.isRead === true, createdAt: dateValue(data.createdAt) };
 }
 export function firestoreError(error: unknown): string {

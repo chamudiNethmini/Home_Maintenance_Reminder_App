@@ -286,3 +286,31 @@ test('finalized requests reject edits, review, verification and repeated decisio
  assert.equal(workflow.isFinalized('Pending'), false);
  assert.equal(workflow.isFinalized('More Information Required'), false);
 });
+
+test('shared auth validates persisted profiles, selected roles and reuses logout', async () => {
+ const firebaseUser = { uid: 'provider-uid', email: 'provider@example.com', displayName: 'Provider Name' };
+ let data = { role: 'provider', name: 'Profile Name' }, exists = true, signedOut = 0;
+ const service = load('services/authService.ts', {
+  'firebase/auth': { signInWithEmailAndPassword: async (_auth, email) => { assert.equal(email, 'provider@example.com'); return { user: firebaseUser }; }, signOut: async () => { signedOut++; } },
+  'firebase/firestore': { doc: (_db, collection, id) => { assert.equal(collection, 'users'); assert.equal(id, firebaseUser.uid); return {}; }, getDoc: async () => ({ exists: () => exists, data: () => data }) },
+  '../config/firebase': { auth: {}, db: {} },
+ });
+ assert.deepEqual(await service.loginUser(' provider@example.com ', 'password', 'provider'), { uid: firebaseUser.uid, email: firebaseUser.email, name: firebaseUser.displayName, role: 'provider' });
+ assert.equal((await service.getUserProfile(firebaseUser)).role, 'provider');
+ await assert.rejects(() => service.loginUser('provider@example.com', 'password', 'homeowner'), /registered as Warranty Provider/);
+ assert.equal(signedOut, 1);
+ exists = false; await assert.rejects(() => service.getUserProfile(firebaseUser), /profile was not found/);
+ exists = true; data = { role: 'invalid' }; await assert.rejects(() => service.getUserProfile(firebaseUser), /Invalid user role/);
+ await service.logoutUser(); assert.equal(signedOut, 2);
+});
+test('root linking retains provider URLs only for provider sessions', () => {
+ const linking = load('navigation/rootLinking.ts', { 'react-native': { Platform: { OS: 'web' } } });
+ const signedOut = linking.rootLinking().config.screens;
+ assert.equal(signedOut.ProviderFlow, undefined); assert.equal(signedOut.Login, 'login/:role');
+ const provider = linking.rootLinking('provider').config.screens.ProviderFlow.screens;
+ assert.equal(provider.ProviderHome.screens.Dashboard, 'provider-dashboard');
+ assert.equal(provider.CreateWarrantyRequest, 'create-warranty-request');
+ assert.equal(provider.StatusUpdate, 'warranty-request/:warrantyRequestId/status');
+ assert.equal(provider.WarrantyProviderEntry, undefined);
+ assert.equal(linking.rootLinking('homeowner').config.screens.ProviderFlow, undefined);
+});

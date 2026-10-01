@@ -14,6 +14,7 @@ export type RootStackParamList = {
   };
 
   HomeownerDashboard: undefined;
+  TechnicianPending: undefined;
 
   ProviderFlow:
     NavigatorScreenParams<ProviderStackParams>;

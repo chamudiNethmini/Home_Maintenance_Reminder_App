@@ -7,7 +7,7 @@ export function Icon({ name, color = colors.teal, size = 22 }: { name: Component
 export function Brand({ large = false }: { large?: boolean }) {
   return <View style={[ui.brand, { flexShrink: 1 }]}>
     <Image source={require('../../../assets/fixmate-logo.png')} accessibilityLabel="FixMate logo" resizeMode="contain"
-      style={{ width: large ? 180 : 72, maxWidth: '100%', aspectRatio: 1, flexShrink: 1 }} />
+      style={{ width: large ? 180 : 72, height: large ? 180 : 72, maxWidth: '100%', flexShrink: 0 }} />
     {!large && <Text style={[ui.caption, { flexShrink: 1 }]}>WARRANTY PROVIDER</Text>}
   </View>;
 }

@@ -1,7 +1,6 @@
 import { useState } from 'react';
 
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -29,9 +28,7 @@ import type {
   UserRole,
 } from '../../navigation/rootTypes';
 
-import {
-  loginUser,
-} from '../../services/authService';
+import { useAuth } from '../../components/auth/AuthContext';
 
 type Props = NativeStackScreenProps<
   RootStackParamList,
@@ -49,6 +46,7 @@ export default function LoginScreen({
   navigation,
 }: Props) {
   const insets = useSafeAreaInsets();
+  const { login } = useAuth();
 
   const { role } = route.params;
 
@@ -77,58 +75,7 @@ export default function LoginScreen({
       setLoading(true);
       setError('');
 
-      const user = await loginUser(
-        email,
-        password,
-        role,
-      );
-
-      console.log(
-        'Logged in user:',
-        user,
-      );
-
-      // HOMEOWNER
-      if (user.role === 'homeowner') {
-        navigation.reset({
-          index: 0,
-          routes: [
-            {
-              name: 'HomeownerDashboard',
-            },
-          ],
-        });
-
-        return;
-      }
-
-      // WARRANTY PROVIDER
-      if (user.role === 'provider') {
-        navigation.reset({
-          index: 0,
-          routes: [
-            {
-              name: 'ProviderFlow',
-
-              params: {
-                screen: 'ProviderHome',
-              },
-            },
-          ],
-        });
-
-        return;
-      }
-
-      // TECHNICIAN
-      if (user.role === 'technician') {
-        Alert.alert(
-          'Login Successful',
-          'Technician module is not connected yet.',
-        );
-
-        return;
-      }
+      await login(email, password, role);
     } catch (loginError) {
       if (loginError instanceof Error) {
         setError(loginError.message);

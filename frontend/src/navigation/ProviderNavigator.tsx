@@ -3,7 +3,6 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Icon, colors } from '../components/provider/ProviderUI';
 import { useProviderModule } from '../components/provider/ProviderContext';
 import type { ProviderStackParams, ProviderTabParams } from './providerTypes';
-import WarrantyProviderEntryScreen from '../screens/provider/WarrantyProviderEntryScreen';
 import CreateWarrantyRequestScreen from '../screens/provider/CreateWarrantyRequestScreen';
 import ProviderDashboardScreen from '../screens/provider/ProviderDashboardScreen';
 import WarrantyRequestsScreen from '../screens/provider/WarrantyRequestsScreen';
@@ -32,8 +31,7 @@ function ProviderTabs() {
 }
 /** Mount inside the team's NavigationContainer and ProviderModuleProvider. */
 export default function ProviderNavigator() {
-  return <Stack.Navigator initialRouteName="WarrantyProviderEntry" screenOptions={{ headerTintColor: colors.navy, headerShadowVisible: false, headerStyle: { backgroundColor: colors.background }, contentStyle: { backgroundColor: colors.background } }}>
-    <Stack.Screen name="WarrantyProviderEntry" component={WarrantyProviderEntryScreen} options={{ headerShown: false }} />
+  return <Stack.Navigator initialRouteName="ProviderHome" screenOptions={{ headerTintColor: colors.navy, headerShadowVisible: false, headerStyle: { backgroundColor: colors.background }, contentStyle: { backgroundColor: colors.background } }}>
     <Stack.Screen name="CreateWarrantyRequest" component={CreateWarrantyRequestScreen} options={{ title: 'Create warranty request' }} />
     <Stack.Screen name="ProviderHome" component={ProviderTabs} options={{ headerShown: false }} />
     <Stack.Screen name="CustomerApplianceInfo" component={CustomerApplianceInfoScreen} options={{ title: 'Request details' }} />

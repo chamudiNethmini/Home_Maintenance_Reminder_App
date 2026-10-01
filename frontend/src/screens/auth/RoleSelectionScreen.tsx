@@ -1,10 +1,11 @@
 import {
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
-} from 'react-native';
+} from 'react-native';;
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -13,7 +14,6 @@ import type {
 } from '@react-navigation/native-stack';
 
 import {
-  Brand,
   colors,
   Icon,
 } from '../../components/provider/ProviderUI';
@@ -78,7 +78,11 @@ export default function RoleSelectionScreen({
     >
       <View style={styles.content}>
         <View style={styles.intro}>
-          <Brand large />
+          <Image
+  source={require('../../../assets/fixmate-logo.png')}
+  style={styles.logo}
+  resizeMode="contain"
+/>
 
           <Text style={styles.heading}>
             Welcome Back!
@@ -154,44 +158,40 @@ export default function RoleSelectionScreen({
 const styles = StyleSheet.create({
   page: {
     flexGrow: 1,
-    justifyContent: 'center',
-
-    backgroundColor:
-      colors.background,
-
+    backgroundColor: colors.background,
     paddingHorizontal: 24,
   },
 
   content: {
     width: '100%',
     maxWidth: 470,
-
     alignSelf: 'center',
+    gap: 24,
+    paddingTop: 24,
+    paddingBottom: 32,
+  },
 
-    gap: 30,
+  logo: {
+    width: 180,
+    height: 180,
+    alignSelf: 'center',
   },
 
   intro: {
     alignItems: 'center',
-
     gap: 13,
   },
 
   heading: {
     fontSize: 32,
-
     fontWeight: '800',
-
     color: colors.navy,
   },
 
   subtitle: {
     color: colors.muted,
-
     fontSize: 14,
-
     lineHeight: 21,
-
     textAlign: 'center',
   },
 
@@ -201,35 +201,21 @@ const styles = StyleSheet.create({
 
   caption: {
     color: colors.muted,
-
     fontSize: 10,
-
     fontWeight: '700',
-
     letterSpacing: 1.2,
   },
 
   roleCard: {
     minHeight: 88,
-
     flexDirection: 'row',
-
     alignItems: 'center',
-
     gap: 14,
-
-    backgroundColor:
-      colors.white,
-
+    backgroundColor: colors.white,
     borderWidth: 1,
-
-    borderColor:
-      colors.border,
-
+    borderColor: colors.border,
     borderRadius: 18,
-
     paddingHorizontal: 18,
-
     paddingVertical: 16,
   },
 
@@ -239,41 +225,28 @@ const styles = StyleSheet.create({
 
   iconBox: {
     width: 48,
-
     height: 48,
-
     borderRadius: 14,
-
-    backgroundColor:
-      '#F1F9F9',
-
+    backgroundColor: '#F1F9F9',
     borderWidth: 1,
-
-    borderColor:
-      '#CEDCE3',
-
+    borderColor: '#CEDCE3',
     alignItems: 'center',
-
     justifyContent: 'center',
   },
 
   roleText: {
     flex: 1,
-
     gap: 4,
   },
 
   roleTitle: {
     color: colors.navy,
-
     fontSize: 17,
-
     fontWeight: '700',
   },
 
   roleDescription: {
     color: colors.muted,
-
     fontSize: 13,
   },
 });

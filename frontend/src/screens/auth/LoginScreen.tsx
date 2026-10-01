@@ -19,6 +19,7 @@ import type {
 
 import {
   Brand,
+  ui,
   colors,
   Icon,
 } from '../../components/provider/ProviderUI';
@@ -99,6 +100,7 @@ export default function LoginScreen({
       }
     >
       <ScrollView
+        style={ui.scrollViewport}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={[
           styles.page,
@@ -325,7 +327,7 @@ const styles = StyleSheet.create({
 
   page: {
     flexGrow: 1,
-    justifyContent: 'center',
+    justifyContent: Platform.OS === 'web' ? 'flex-start' : 'center',
     paddingHorizontal: 24,
   },
 

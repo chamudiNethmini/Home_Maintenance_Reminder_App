@@ -15,6 +15,7 @@ import type {
 
 import {
   colors,
+  ui,
   Icon,
 } from '../../components/provider/ProviderUI';
 
@@ -68,6 +69,7 @@ export default function RoleSelectionScreen({
 
   return (
     <ScrollView
+      style={[ui.scrollViewport, { backgroundColor: colors.background }]}
       contentContainerStyle={[
         styles.page,
         {

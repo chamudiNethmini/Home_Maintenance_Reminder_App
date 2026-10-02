@@ -21,6 +21,8 @@ import ApplianceDetailsScreen
 
 import ScheduleMaintenanceScreen
   from '../screens/homeowner/ScheduleMaintenanceScreen';
+  import ReminderSettingsScreen
+  from '../screens/homeowner/ReminderSettingsScreen';
 import type {
   HomeownerStackParams,
 } from './homeownerTypes';
@@ -81,6 +83,10 @@ export default function HomeownerNavigator() {
   component={
     ScheduleMaintenanceScreen
   }
+/>
+<Stack.Screen
+  name="ReminderSettings"
+  component={ReminderSettingsScreen}
 />
     </Stack.Navigator>
   );

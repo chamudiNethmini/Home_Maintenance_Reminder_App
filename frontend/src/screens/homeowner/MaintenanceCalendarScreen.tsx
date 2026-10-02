@@ -50,8 +50,37 @@ const COLORS = {
   border: '#DEE8ED',
   preview: '#F1F9F9',
   illustrationLine: '#CEDCE3',
+
   danger: '#AC3546',
+  dangerBackground: '#FFF5F6',
+  dangerBorder: '#F1D3D7',
 };
+
+function getTodayString() {
+  const today =
+    new Date();
+
+  const year =
+    today.getFullYear();
+
+  const month =
+    String(
+      today.getMonth() + 1,
+    ).padStart(
+      2,
+      '0',
+    );
+
+  const day =
+    String(
+      today.getDate(),
+    ).padStart(
+      2,
+      '0',
+    );
+
+  return `${year}-${month}-${day}`;
+}
 
 export default function MaintenanceCalendarScreen({
   navigation,
@@ -62,19 +91,22 @@ export default function MaintenanceCalendarScreen({
   const [
     schedules,
     setSchedules,
-  ] = useState<
-    MaintenanceSchedule[]
-  >([]);
+  ] =
+    useState<MaintenanceSchedule[]>(
+      [],
+    );
 
   const [
     loading,
     setLoading,
-  ] = useState(true);
+  ] =
+    useState(true);
 
   const [
     error,
     setError,
-  ] = useState('');
+  ] =
+    useState('');
 
   const loadSchedules =
     useCallback(
@@ -117,7 +149,9 @@ export default function MaintenanceCalendarScreen({
       () => {
         void loadSchedules();
       },
-      [loadSchedules],
+      [
+        loadSchedules,
+      ],
     ),
   );
 
@@ -217,13 +251,15 @@ export default function MaintenanceCalendarScreen({
         'Are you sure you want to delete this maintenance schedule?',
         [
           {
-            text: 'Cancel',
+            text:
+              'Cancel',
             style:
               'cancel',
           },
 
           {
-            text: 'Delete',
+            text:
+              'Delete',
             style:
               'destructive',
 
@@ -234,19 +270,289 @@ export default function MaintenanceCalendarScreen({
       );
     };
 
+  const today =
+    getTodayString();
+
+  // Not completed + date today or future
   const upcoming =
     schedules.filter(
-      (schedule) =>
+      (
+        schedule,
+      ) =>
         schedule.status ===
-        'upcoming',
+          'upcoming' &&
+        schedule.scheduledDate >=
+          today,
+    );
+
+  // Not completed + date before today
+  const overdue =
+    schedules.filter(
+      (
+        schedule,
+      ) =>
+        schedule.status ===
+          'upcoming' &&
+        schedule.scheduledDate <
+          today,
     );
 
   const completed =
     schedules.filter(
-      (schedule) =>
+      (
+        schedule,
+      ) =>
         schedule.status ===
         'completed',
     );
+
+  const renderScheduleCard =
+    (
+      schedule:
+        MaintenanceSchedule,
+
+      displayStatus:
+        | 'Upcoming'
+        | 'Overdue'
+        | 'Completed',
+    ) => {
+      const isOverdue =
+        displayStatus ===
+        'Overdue';
+
+      const isCompleted =
+        displayStatus ===
+        'Completed';
+
+      return (
+        <View
+          key={
+            schedule.id
+          }
+          style={[
+            styles.scheduleCard,
+
+            isOverdue &&
+              styles.overdueCard,
+
+            isCompleted && {
+              opacity: 0.7,
+            },
+          ]}
+        >
+          <View
+            style={
+              styles.scheduleHeader
+            }
+          >
+            <View
+              style={[
+                styles.scheduleIcon,
+
+                isOverdue &&
+                  styles.overdueIcon,
+              ]}
+            >
+              <Ionicons
+                name={
+                  isCompleted
+                    ? 'checkmark-circle-outline'
+                    : isOverdue
+                      ? 'warning-outline'
+                      : 'build-outline'
+                }
+                size={23}
+                color={
+                  isOverdue
+                    ? COLORS.danger
+                    : isCompleted
+                      ? COLORS.teal
+                      : COLORS.cyan
+                }
+              />
+            </View>
+
+            <View
+              style={
+                styles.scheduleInfo
+              }
+            >
+              <Text
+                style={
+                  styles.applianceName
+                }
+              >
+                {
+                  schedule.applianceName
+                }
+              </Text>
+
+              <Text
+                style={
+                  styles.maintenanceType
+                }
+              >
+                {
+                  schedule.maintenanceType
+                }
+              </Text>
+            </View>
+
+            <View
+              style={[
+                styles.statusBadge,
+
+                isOverdue &&
+                  styles.overdueStatusBadge,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.statusText,
+
+                  isOverdue &&
+                    styles.overdueStatusText,
+                ]}
+              >
+                {
+                  displayStatus
+                }
+              </Text>
+            </View>
+          </View>
+
+          <View
+            style={
+              styles.dateRow
+            }
+          >
+            <Ionicons
+              name="calendar-outline"
+              size={17}
+              color={
+                isOverdue
+                  ? COLORS.danger
+                  : COLORS.secondary
+              }
+            />
+
+            <Text
+              style={[
+                styles.dateText,
+
+                isOverdue &&
+                  styles.overdueDateText,
+              ]}
+            >
+              {
+                schedule.scheduledDate
+              }
+            </Text>
+          </View>
+
+          {schedule.notes ? (
+            <Text
+              style={
+                styles.notes
+              }
+            >
+              {
+                schedule.notes
+              }
+            </Text>
+          ) : null}
+
+          {!isCompleted ? (
+            <View
+              style={
+                styles.actionRow
+              }
+            >
+              <Pressable
+                style={
+                  styles.completeButton
+                }
+                onPress={() =>
+                  void markCompleted(
+                    schedule.id,
+                  )
+                }
+              >
+                <Ionicons
+                  name="checkmark"
+                  size={17}
+                  color={
+                    COLORS.white
+                  }
+                />
+
+                <Text
+                  style={
+                    styles.completeButtonText
+                  }
+                >
+                  Complete
+                </Text>
+              </Pressable>
+
+              <Pressable
+                style={
+                  styles.deleteButton
+                }
+                onPress={() =>
+                  handleDelete(
+                    schedule.id,
+                  )
+                }
+              >
+                <Ionicons
+                  name="trash-outline"
+                  size={17}
+                  color={
+                    COLORS.danger
+                  }
+                />
+
+                <Text
+                  style={
+                    styles.deleteText
+                  }
+                >
+                  Delete
+                </Text>
+              </Pressable>
+            </View>
+          ) : (
+            <Pressable
+              style={
+                styles.completedDeleteButton
+              }
+              onPress={() =>
+                handleDelete(
+                  schedule.id,
+                )
+              }
+            >
+              <Ionicons
+                name="trash-outline"
+                size={17}
+                color={
+                  COLORS.danger
+                }
+              />
+
+              <Text
+                style={
+                  styles.deleteText
+                }
+              >
+                Delete
+              </Text>
+            </Pressable>
+          )}
+        </View>
+      );
+    };
 
   return (
     <View
@@ -312,8 +618,8 @@ export default function MaintenanceCalendarScreen({
                 styles.subtitle
               }
             >
-              Track upcoming
-              maintenance
+              Track your maintenance
+              schedules
             </Text>
           </View>
         </View>
@@ -331,7 +637,7 @@ export default function MaintenanceCalendarScreen({
           >
             <Ionicons
               name="calendar-outline"
-              size={25}
+              size={24}
               color={
                 COLORS.cyan
               }
@@ -357,13 +663,53 @@ export default function MaintenanceCalendarScreen({
           </View>
 
           <View
+            style={[
+              styles.summaryCard,
+
+              overdue.length >
+                0 &&
+                styles.overdueSummaryCard,
+            ]}
+          >
+            <Ionicons
+              name="warning-outline"
+              size={24}
+              color={
+                COLORS.danger
+              }
+            />
+
+            <Text
+              style={[
+                styles.summaryNumber,
+
+                overdue.length >
+                  0 &&
+                  styles.overdueSummaryNumber,
+              ]}
+            >
+              {
+                overdue.length
+              }
+            </Text>
+
+            <Text
+              style={
+                styles.summaryLabel
+              }
+            >
+              Overdue
+            </Text>
+          </View>
+
+          <View
             style={
               styles.summaryCard
             }
           >
             <Ionicons
               name="checkmark-circle-outline"
-              size={25}
+              size={24}
               color={
                 COLORS.teal
               }
@@ -389,25 +735,15 @@ export default function MaintenanceCalendarScreen({
           </View>
         </View>
 
-        <View
-          style={
-            styles.sectionHeader
-          }
-        >
-          <Text
-            style={
-              styles.sectionTitle
-            }
-          >
-            Upcoming Maintenance
-          </Text>
-        </View>
-
         {loading ? (
           <View
-            style={
-              styles.stateCard
-            }
+            style={[
+              styles.stateCard,
+              {
+                marginTop:
+                  24,
+              },
+            ]}
           >
             <ActivityIndicator
               size="large"
@@ -426,9 +762,13 @@ export default function MaintenanceCalendarScreen({
           </View>
         ) : error ? (
           <View
-            style={
-              styles.stateCard
-            }
+            style={[
+              styles.stateCard,
+              {
+                marginTop:
+                  24,
+              },
+            ]}
           >
             <Ionicons
               name="alert-circle-outline"
@@ -463,221 +803,43 @@ export default function MaintenanceCalendarScreen({
               </Text>
             </Pressable>
           </View>
-        ) : upcoming.length ===
-          0 ? (
-          <View
-            style={
-              styles.stateCard
-            }
-          >
-            <View
-              style={
-                styles.emptyIcon
-              }
-            >
-              <Ionicons
-                name="calendar-outline"
-                size={38}
-                color={
-                  COLORS.cyan
-                }
-              />
-            </View>
-
-            <Text
-              style={
-                styles.emptyTitle
-              }
-            >
-              No maintenance scheduled
-            </Text>
-
-            <Text
-              style={
-                styles.stateText
-              }
-            >
-              Schedule maintenance
-              for one of your
-              appliances.
-            </Text>
-          </View>
         ) : (
-          upcoming.map(
-            (
-              schedule,
-            ) => (
-              <View
-                key={
-                  schedule.id
-                }
-                style={
-                  styles.scheduleCard
-                }
-              >
-                <View
-                  style={
-                    styles.scheduleHeader
-                  }
-                >
-                  <View
-                    style={
-                      styles.scheduleIcon
-                    }
-                  >
-                    <Ionicons
-                      name="build-outline"
-                      size={23}
-                      color={
-                        COLORS.cyan
-                      }
-                    />
-                  </View>
-
-                  <View
-                    style={
-                      styles.scheduleInfo
-                    }
-                  >
-                    <Text
-                      style={
-                        styles.applianceName
-                      }
-                    >
-                      {
-                        schedule.applianceName
-                      }
-                    </Text>
-
-                    <Text
-                      style={
-                        styles.maintenanceType
-                      }
-                    >
-                      {
-                        schedule.maintenanceType
-                      }
-                    </Text>
-                  </View>
-
-                  <View
-                    style={
-                      styles.statusBadge
-                    }
-                  >
-                    <Text
-                      style={
-                        styles.statusText
-                      }
-                    >
-                      Upcoming
-                    </Text>
-                  </View>
-                </View>
-
-                <View
-                  style={
-                    styles.dateRow
-                  }
-                >
-                  <Ionicons
-                    name="calendar-outline"
-                    size={17}
-                    color={
-                      COLORS.secondary
-                    }
-                  />
-
-                  <Text
-                    style={
-                      styles.dateText
-                    }
-                  >
-                    {
-                      schedule.scheduledDate
-                    }
-                  </Text>
-                </View>
-
-                {schedule.notes ? (
-                  <Text
-                    style={
-                      styles.notes
-                    }
-                  >
-                    {
-                      schedule.notes
-                    }
-                  </Text>
-                ) : null}
-
-                <View
-                  style={
-                    styles.actionRow
-                  }
-                >
-                  <Pressable
-                    style={
-                      styles.completeButton
-                    }
-                    onPress={() =>
-                      void markCompleted(
-                        schedule.id,
-                      )
-                    }
-                  >
-                    <Ionicons
-                      name="checkmark"
-                      size={17}
-                      color={
-                        COLORS.white
-                      }
-                    />
-
-                    <Text
-                      style={
-                        styles.completeButtonText
-                      }
-                    >
-                      Complete
-                    </Text>
-                  </Pressable>
-
-                  <Pressable
-                    style={
-                      styles.deleteButton
-                    }
-                    onPress={() =>
-                      handleDelete(
-                        schedule.id,
-                      )
-                    }
-                  >
-                    <Ionicons
-                      name="trash-outline"
-                      size={17}
-                      color={
-                        COLORS.danger
-                      }
-                    />
-
-                    <Text
-                      style={
-                        styles.deleteText
-                      }
-                    >
-                      Delete
-                    </Text>
-                  </Pressable>
-                </View>
-              </View>
-            ),
-          )
-        )}
-
-        {completed.length >
-          0 && (
           <>
+            {/* Overdue */}
+            {overdue.length >
+              0 && (
+              <>
+                <View
+                  style={
+                    styles.sectionHeader
+                  }
+                >
+                  <Text
+                    style={[
+                      styles.sectionTitle,
+                      {
+                        color:
+                          COLORS.danger,
+                      },
+                    ]}
+                  >
+                    Overdue Maintenance
+                  </Text>
+                </View>
+
+                {overdue.map(
+                  (
+                    schedule,
+                  ) =>
+                    renderScheduleCard(
+                      schedule,
+                      'Overdue',
+                    ),
+                )}
+              </>
+            )}
+
+            {/* Upcoming */}
             <View
               style={
                 styles.sectionHeader
@@ -688,94 +850,95 @@ export default function MaintenanceCalendarScreen({
                   styles.sectionTitle
                 }
               >
-                Completed
+                Upcoming Maintenance
               </Text>
             </View>
 
-            {completed.map(
-              (
-                schedule,
-              ) => (
+            {upcoming.length ===
+            0 ? (
+              <View
+                style={
+                  styles.stateCard
+                }
+              >
                 <View
-                  key={
-                    schedule.id
+                  style={
+                    styles.emptyIcon
                   }
-                  style={[
-                    styles.scheduleCard,
-                    {
-                      opacity:
-                        0.7,
-                    },
-                  ]}
                 >
-                  <View
+                  <Ionicons
+                    name="calendar-outline"
+                    size={38}
+                    color={
+                      COLORS.cyan
+                    }
+                  />
+                </View>
+
+                <Text
+                  style={
+                    styles.emptyTitle
+                  }
+                >
+                  No upcoming maintenance
+                </Text>
+
+                <Text
+                  style={
+                    styles.stateText
+                  }
+                >
+                  Schedule maintenance
+                  for one of your
+                  appliances.
+                </Text>
+              </View>
+            ) : (
+              upcoming.map(
+                (
+                  schedule,
+                ) =>
+                  renderScheduleCard(
+                    schedule,
+                    'Upcoming',
+                  ),
+              )
+            )}
+
+            {/* Completed */}
+            {completed.length >
+              0 && (
+              <>
+                <View
+                  style={
+                    styles.sectionHeader
+                  }
+                >
+                  <Text
                     style={
-                      styles.scheduleHeader
+                      styles.sectionTitle
                     }
                   >
-                    <View
-                      style={
-                        styles.scheduleIcon
-                      }
-                    >
-                      <Ionicons
-                        name="checkmark-circle-outline"
-                        size={
-                          23
-                        }
-                        color={
-                          COLORS.teal
-                        }
-                      />
-                    </View>
-
-                    <View
-                      style={
-                        styles.scheduleInfo
-                      }
-                    >
-                      <Text
-                        style={
-                          styles.applianceName
-                        }
-                      >
-                        {
-                          schedule.applianceName
-                        }
-                      </Text>
-
-                      <Text
-                        style={
-                          styles.maintenanceType
-                        }
-                      >
-                        {
-                          schedule.maintenanceType
-                        }
-                      </Text>
-                    </View>
-
-                    <View
-                      style={
-                        styles.statusBadge
-                      }
-                    >
-                      <Text
-                        style={
-                          styles.statusText
-                        }
-                      >
-                        Completed
-                      </Text>
-                    </View>
-                  </View>
+                    Completed
+                  </Text>
                 </View>
-              ),
+
+                {completed.map(
+                  (
+                    schedule,
+                  ) =>
+                    renderScheduleCard(
+                      schedule,
+                      'Completed',
+                    ),
+                )}
+              </>
             )}
           </>
         )}
       </ScrollView>
 
+      {/* Bottom Schedule Button */}
       <View
         style={[
           styles.bottomContainer,
@@ -825,15 +988,19 @@ const styles =
   StyleSheet.create({
     container: {
       flex: 1,
+
       backgroundColor:
         COLORS.background,
     },
 
     content: {
       width: '100%',
+
       maxWidth: 500,
+
       alignSelf:
         'center',
+
       paddingHorizontal:
         20,
     },
@@ -841,25 +1008,35 @@ const styles =
     header: {
       flexDirection:
         'row',
+
       alignItems:
         'center',
+
       gap: 14,
+
       marginBottom:
         22,
     },
 
     backButton: {
       width: 44,
+
       height: 44,
+
       borderRadius:
         14,
+
       backgroundColor:
         COLORS.white,
+
       borderWidth: 1,
+
       borderColor:
         COLORS.border,
+
       alignItems:
         'center',
+
       justifyContent:
         'center',
     },
@@ -870,15 +1047,19 @@ const styles =
 
     title: {
       fontSize: 23,
+
       fontWeight:
         '800',
+
       color:
         COLORS.heading,
     },
 
     subtitle: {
       marginTop: 3,
+
       fontSize: 13,
+
       color:
         COLORS.secondary,
     },
@@ -886,48 +1067,79 @@ const styles =
     summaryContainer: {
       flexDirection:
         'row',
-      gap: 11,
+
+      gap: 8,
     },
 
     summaryCard: {
       flex: 1,
+
       backgroundColor:
         COLORS.white,
+
       borderWidth: 1,
+
       borderColor:
         COLORS.border,
+
       borderRadius:
-        16,
-      padding: 15,
+        15,
+
+      paddingVertical:
+        14,
+
+      paddingHorizontal:
+        6,
+
       alignItems:
         'center',
+
       gap: 4,
     },
 
+    overdueSummaryCard: {
+      backgroundColor:
+        COLORS.dangerBackground,
+
+      borderColor:
+        COLORS.dangerBorder,
+    },
+
     summaryNumber: {
-      fontSize: 21,
+      fontSize: 20,
+
       fontWeight:
         '800',
+
       color:
         COLORS.heading,
     },
 
+    overdueSummaryNumber: {
+      color:
+        COLORS.danger,
+    },
+
     summaryLabel: {
-      fontSize: 11,
+      fontSize: 10,
+
       color:
         COLORS.secondary,
     },
 
     sectionHeader: {
       marginTop: 24,
+
       marginBottom:
         11,
     },
 
     sectionTitle: {
       fontSize: 17,
+
       fontWeight:
         '800',
+
       color:
         COLORS.heading,
     },
@@ -935,52 +1147,82 @@ const styles =
     scheduleCard: {
       backgroundColor:
         COLORS.white,
+
       borderWidth: 1,
+
       borderColor:
         COLORS.border,
+
       borderRadius:
         17,
+
       padding: 15,
+
       marginBottom:
         11,
+    },
+
+    overdueCard: {
+      borderColor:
+        COLORS.dangerBorder,
+
+      backgroundColor:
+        COLORS.dangerBackground,
     },
 
     scheduleHeader: {
       flexDirection:
         'row',
+
       alignItems:
         'center',
     },
 
     scheduleIcon: {
       width: 45,
+
       height: 45,
+
       borderRadius:
         13,
+
       backgroundColor:
         COLORS.preview,
+
       alignItems:
         'center',
+
       justifyContent:
         'center',
     },
 
+    overdueIcon: {
+      backgroundColor:
+        COLORS.white,
+    },
+
     scheduleInfo: {
       flex: 1,
-      marginLeft: 11,
+
+      marginLeft:
+        11,
     },
 
     applianceName: {
       fontSize: 14,
+
       fontWeight:
         '700',
+
       color:
         COLORS.heading,
     },
 
     maintenanceType: {
       marginTop: 3,
+
       fontSize: 11,
+
       color:
         COLORS.secondary,
     },
@@ -988,10 +1230,13 @@ const styles =
     statusBadge: {
       paddingHorizontal:
         8,
+
       paddingVertical:
         5,
+
       borderRadius:
         8,
+
       backgroundColor:
         COLORS.preview,
     },
@@ -999,53 +1244,94 @@ const styles =
     statusText: {
       color:
         COLORS.teal,
+
       fontSize: 9,
+
       fontWeight:
         '700',
     },
 
+    overdueStatusBadge: {
+      backgroundColor:
+        COLORS.white,
+
+      borderWidth: 1,
+
+      borderColor:
+        COLORS.dangerBorder,
+    },
+
+    overdueStatusText: {
+      color:
+        COLORS.danger,
+    },
+
     dateRow: {
       marginTop: 13,
+
       flexDirection:
         'row',
+
       alignItems:
         'center',
+
       gap: 7,
     },
 
     dateText: {
       fontSize: 12,
+
       color:
         COLORS.secondary,
     },
 
+    overdueDateText: {
+      color:
+        COLORS.danger,
+
+      fontWeight:
+        '700',
+    },
+
     notes: {
       marginTop: 9,
+
       fontSize: 12,
+
       lineHeight: 18,
+
       color:
         COLORS.secondary,
     },
 
     actionRow: {
       marginTop: 14,
+
       flexDirection:
         'row',
+
       gap: 9,
     },
 
     completeButton: {
       flex: 1,
+
       minHeight: 42,
+
       borderRadius:
         10,
+
       backgroundColor:
         COLORS.teal,
+
       flexDirection:
         'row',
+
       gap: 6,
+
       alignItems:
         'center',
+
       justifyContent:
         'center',
     },
@@ -1053,27 +1339,66 @@ const styles =
     completeButtonText: {
       color:
         COLORS.white,
+
       fontSize: 11,
+
       fontWeight:
         '700',
     },
 
     deleteButton: {
       minHeight: 42,
+
       paddingHorizontal:
         14,
+
       borderRadius:
         10,
+
       backgroundColor:
-        '#FFF5F6',
+        COLORS.dangerBackground,
+
       borderWidth: 1,
+
       borderColor:
-        '#F1D3D7',
+        COLORS.dangerBorder,
+
       flexDirection:
         'row',
+
       gap: 6,
+
       alignItems:
         'center',
+
+      justifyContent:
+        'center',
+    },
+
+    completedDeleteButton: {
+      minHeight: 42,
+
+      marginTop: 14,
+
+      borderRadius:
+        10,
+
+      backgroundColor:
+        COLORS.dangerBackground,
+
+      borderWidth: 1,
+
+      borderColor:
+        COLORS.dangerBorder,
+
+      flexDirection:
+        'row',
+
+      gap: 6,
+
+      alignItems:
+        'center',
+
       justifyContent:
         'center',
     },
@@ -1081,37 +1406,52 @@ const styles =
     deleteText: {
       color:
         COLORS.danger,
+
       fontSize: 11,
+
       fontWeight:
         '700',
     },
 
     stateCard: {
-      minHeight: 220,
+      minHeight: 200,
+
       backgroundColor:
         COLORS.white,
+
       borderWidth: 1,
+
       borderColor:
         COLORS.border,
+
       borderRadius:
         18,
+
       padding: 25,
+
       alignItems:
         'center',
+
       justifyContent:
         'center',
+
       gap: 10,
     },
 
     emptyIcon: {
       width: 70,
+
       height: 70,
+
       borderRadius:
         20,
+
       backgroundColor:
         COLORS.preview,
+
       alignItems:
         'center',
+
       justifyContent:
         'center',
     },
@@ -1119,7 +1459,9 @@ const styles =
     emptyTitle: {
       color:
         COLORS.heading,
+
       fontSize: 17,
+
       fontWeight:
         '800',
     },
@@ -1127,7 +1469,9 @@ const styles =
     stateText: {
       color:
         COLORS.secondary,
+
       fontSize: 12,
+
       textAlign:
         'center',
     },
@@ -1135,7 +1479,9 @@ const styles =
     errorText: {
       color:
         COLORS.danger,
+
       fontSize: 12,
+
       textAlign:
         'center',
     },
@@ -1143,10 +1489,13 @@ const styles =
     retryButton: {
       backgroundColor:
         COLORS.teal,
+
       paddingHorizontal:
         15,
+
       paddingVertical:
         8,
+
       borderRadius:
         9,
     },
@@ -1154,6 +1503,7 @@ const styles =
     retryText: {
       color:
         COLORS.white,
+
       fontWeight:
         '700',
     },
@@ -1161,39 +1511,56 @@ const styles =
     bottomContainer: {
       position:
         'absolute',
+
       left: 0,
+
       right: 0,
+
       bottom: 0,
+
       backgroundColor:
         COLORS.background,
+
       paddingHorizontal:
         20,
+
       paddingTop: 11,
     },
 
     scheduleButton: {
       width: '100%',
+
       maxWidth: 460,
+
       alignSelf:
         'center',
+
       minHeight: 54,
+
       borderRadius:
         14,
+
       backgroundColor:
         COLORS.teal,
+
       flexDirection:
         'row',
+
       alignItems:
         'center',
+
       justifyContent:
         'center',
+
       gap: 8,
     },
 
     scheduleButtonText: {
       color:
         COLORS.white,
+
       fontSize: 14,
+
       fontWeight:
         '700',
     },

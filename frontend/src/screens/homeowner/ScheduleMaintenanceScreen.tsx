@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -67,6 +68,31 @@ const maintenanceTypes:
     'Other',
   ];
 
+const MONTHS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+
+const WEEK_DAYS = [
+  'Sun',
+  'Mon',
+  'Tue',
+  'Wed',
+  'Thu',
+  'Fri',
+  'Sat',
+];
+
 export default function ScheduleMaintenanceScreen({
   navigation,
   route,
@@ -77,9 +103,10 @@ export default function ScheduleMaintenanceScreen({
   const [
     appliances,
     setAppliances,
-  ] = useState<
-    HomeownerAppliance[]
-  >([]);
+  ] =
+    useState<HomeownerAppliance[]>(
+      [],
+    );
 
   const [
     selectedAppliance,
@@ -151,9 +178,7 @@ export default function ScheduleMaintenanceScreen({
                   requestedApplianceId,
               );
 
-            if (
-              appliance
-            ) {
+            if (appliance) {
               setSelectedAppliance(
                 appliance,
               );
@@ -163,8 +188,7 @@ export default function ScheduleMaintenanceScreen({
           loadError
         ) {
           setError(
-            loadError instanceof
-              Error
+            loadError instanceof Error
               ? loadError.message
               : 'Unable to load appliances.',
           );
@@ -201,10 +225,8 @@ export default function ScheduleMaintenanceScreen({
           `${value}T00:00:00`,
         );
 
-      return (
-        !Number.isNaN(
-          parsed.getTime(),
-        )
+      return !Number.isNaN(
+        parsed.getTime(),
       );
     };
 
@@ -224,7 +246,7 @@ export default function ScheduleMaintenanceScreen({
         !scheduledDate.trim()
       ) {
         setError(
-          'Please enter a maintenance date.',
+          'Please select a maintenance date.',
         );
 
         return;
@@ -236,7 +258,7 @@ export default function ScheduleMaintenanceScreen({
         )
       ) {
         setError(
-          'Maintenance date must use YYYY-MM-DD format.',
+          'Please select a valid maintenance date.',
         );
 
         return;
@@ -244,34 +266,38 @@ export default function ScheduleMaintenanceScreen({
 
       try {
         setSaving(true);
+
         setError('');
 
-        await createMaintenanceSchedule(
-          {
-            applianceId:
-              selectedAppliance.id,
+        const scheduleId =
+          await createMaintenanceSchedule(
+            {
+              applianceId:
+                selectedAppliance.id,
 
-            applianceName:
-              selectedAppliance.name,
+              applianceName:
+                selectedAppliance.name,
 
-            maintenanceType,
+              maintenanceType,
 
-            scheduledDate,
+              scheduledDate,
 
-            notes,
-          },
-        );
+              notes,
+            },
+          );
 
         if (
-          Platform.OS ===
-          'web'
+          Platform.OS === 'web'
         ) {
           window.alert(
-            'Maintenance scheduled successfully.',
+            'Maintenance scheduled successfully. Now set your reminder.',
           );
 
           navigation.replace(
-            'MaintenanceCalendar',
+            'ReminderSettings',
+            {
+              scheduleId,
+            },
           );
 
           return;
@@ -279,14 +305,17 @@ export default function ScheduleMaintenanceScreen({
 
         Alert.alert(
           'Maintenance Scheduled',
-          'Your maintenance schedule was saved successfully.',
+          'Maintenance was saved. Now set your reminder.',
           [
             {
-              text: 'OK',
+              text: 'Continue',
 
               onPress: () =>
                 navigation.replace(
-                  'MaintenanceCalendar',
+                  'ReminderSettings',
+                  {
+                    scheduleId,
+                  },
                 ),
             },
           ],
@@ -295,8 +324,7 @@ export default function ScheduleMaintenanceScreen({
         saveError
       ) {
         setError(
-          saveError instanceof
-            Error
+          saveError instanceof Error
             ? saveError.message
             : 'Unable to save maintenance schedule.',
         );
@@ -503,9 +531,7 @@ export default function ScheduleMaintenanceScreen({
                         >
                           <Ionicons
                             name="cube-outline"
-                            size={
-                              23
-                            }
+                            size={23}
                             color={
                               selected
                                 ? COLORS.white
@@ -550,9 +576,7 @@ export default function ScheduleMaintenanceScreen({
                               ? 'checkmark-circle'
                               : 'ellipse-outline'
                           }
-                          size={
-                            22
-                          }
+                          size={22}
                           color={
                             selected
                               ? COLORS.teal
@@ -567,7 +591,7 @@ export default function ScheduleMaintenanceScreen({
             )}
           </View>
 
-          {/* Type */}
+          {/* Maintenance Type */}
           <View
             style={
               styles.fieldGroup
@@ -626,50 +650,16 @@ export default function ScheduleMaintenanceScreen({
             </View>
           </View>
 
-          {/* Date */}
-          <View
-            style={
-              styles.fieldGroup
+          {/* CLICKABLE CALENDAR */}
+          <DatePickerField
+            label="Maintenance Date"
+            value={
+              scheduledDate
             }
-          >
-            <Text
-              style={
-                styles.label
-              }
-            >
-              Maintenance Date
-            </Text>
-
-            <View
-              style={
-                styles.inputRow
-              }
-            >
-              <Ionicons
-                name="calendar-outline"
-                size={20}
-                color={
-                  COLORS.secondary
-                }
-              />
-
-              <TextInput
-                value={
-                  scheduledDate
-                }
-                onChangeText={
-                  setScheduledDate
-                }
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={
-                  COLORS.secondary
-                }
-                style={
-                  styles.input
-                }
-              />
-            </View>
-          </View>
+            onChange={
+              setScheduledDate
+            }
+          />
 
           {/* Notes */}
           <View
@@ -781,19 +771,511 @@ export default function ScheduleMaintenanceScreen({
   );
 }
 
+/* =========================
+   DATE PICKER
+========================= */
+
+type DatePickerFieldProps = {
+  label: string;
+
+  value: string;
+
+  onChange:
+    (
+      value: string,
+    ) => void;
+};
+
+function formatDate(
+  year: number,
+  month: number,
+  day: number,
+) {
+  return `${year}-${String(
+    month + 1,
+  ).padStart(
+    2,
+    '0',
+  )}-${String(
+    day,
+  ).padStart(
+    2,
+    '0',
+  )}`;
+}
+
+function getInitialMonth(
+  value: string,
+) {
+  const parts =
+    value.split('-');
+
+  if (
+    parts.length === 3
+  ) {
+    const year =
+      Number(
+        parts[0],
+      );
+
+    const month =
+      Number(
+        parts[1],
+      );
+
+    if (
+      !Number.isNaN(
+        year,
+      ) &&
+      !Number.isNaN(
+        month,
+      )
+    ) {
+      return new Date(
+        year,
+        month - 1,
+        1,
+      );
+    }
+  }
+
+  const today =
+    new Date();
+
+  return new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    1,
+  );
+}
+
+function DatePickerField({
+  label,
+  value,
+  onChange,
+}: DatePickerFieldProps) {
+  const [
+    visible,
+    setVisible,
+  ] = useState(false);
+
+  const [
+    displayedMonth,
+    setDisplayedMonth,
+  ] = useState(
+    getInitialMonth(
+      value,
+    ),
+  );
+
+  const year =
+    displayedMonth.getFullYear();
+
+  const month =
+    displayedMonth.getMonth();
+
+  const firstDay =
+    new Date(
+      year,
+      month,
+      1,
+    ).getDay();
+
+  const daysInMonth =
+    new Date(
+      year,
+      month + 1,
+      0,
+    ).getDate();
+
+  const calendarCells:
+    Array<number | null> =
+    [];
+
+  for (
+    let index = 0;
+    index < firstDay;
+    index += 1
+  ) {
+    calendarCells.push(
+      null,
+    );
+  }
+
+  for (
+    let day = 1;
+    day <= daysInMonth;
+    day += 1
+  ) {
+    calendarCells.push(
+      day,
+    );
+  }
+
+  while (
+    calendarCells.length %
+      7 !==
+    0
+  ) {
+    calendarCells.push(
+      null,
+    );
+  }
+
+  const openCalendar =
+    () => {
+      setDisplayedMonth(
+        getInitialMonth(
+          value,
+        ),
+      );
+
+      setVisible(
+        true,
+      );
+    };
+
+  const previousMonth =
+    () => {
+      setDisplayedMonth(
+        new Date(
+          year,
+          month - 1,
+          1,
+        ),
+      );
+    };
+
+  const nextMonth =
+    () => {
+      setDisplayedMonth(
+        new Date(
+          year,
+          month + 1,
+          1,
+        ),
+      );
+    };
+
+  const selectDate =
+    (
+      day: number,
+    ) => {
+      onChange(
+        formatDate(
+          year,
+          month,
+          day,
+        ),
+      );
+
+      setVisible(
+        false,
+      );
+    };
+
+  const selectToday =
+    () => {
+      const today =
+        new Date();
+
+      onChange(
+        formatDate(
+          today.getFullYear(),
+          today.getMonth(),
+          today.getDate(),
+        ),
+      );
+
+      setVisible(
+        false,
+      );
+    };
+
+  return (
+    <View
+      style={
+        styles.fieldGroup
+      }
+    >
+      <Text
+        style={
+          styles.label
+        }
+      >
+        {label}
+      </Text>
+
+      <Pressable
+        style={
+          styles.dateInput
+        }
+        onPress={
+          openCalendar
+        }
+      >
+        <Text
+          style={[
+            styles.dateInputText,
+
+            !value &&
+              styles.datePlaceholder,
+          ]}
+        >
+          {value ||
+            'Select date'}
+        </Text>
+
+        <Ionicons
+          name="calendar-outline"
+          size={21}
+          color={
+            COLORS.teal
+          }
+        />
+      </Pressable>
+
+      <Modal
+        visible={
+          visible
+        }
+        transparent
+        animationType="fade"
+        onRequestClose={() =>
+          setVisible(
+            false,
+          )
+        }
+      >
+        <View
+          style={
+            styles.modalOverlay
+          }
+        >
+          <View
+            style={
+              styles.calendarCard
+            }
+          >
+            {/* Month Navigation */}
+            <View
+              style={
+                styles.calendarHeader
+              }
+            >
+              <Pressable
+                style={
+                  styles.monthButton
+                }
+                onPress={
+                  previousMonth
+                }
+              >
+                <Ionicons
+                  name="chevron-back"
+                  size={22}
+                  color={
+                    COLORS.heading
+                  }
+                />
+              </Pressable>
+
+              <Text
+                style={
+                  styles.monthTitle
+                }
+              >
+                {
+                  MONTHS[
+                    month
+                  ]
+                }{' '}
+                {year}
+              </Text>
+
+              <Pressable
+                style={
+                  styles.monthButton
+                }
+                onPress={
+                  nextMonth
+                }
+              >
+                <Ionicons
+                  name="chevron-forward"
+                  size={22}
+                  color={
+                    COLORS.heading
+                  }
+                />
+              </Pressable>
+            </View>
+
+            {/* Week */}
+            <View
+              style={
+                styles.weekRow
+              }
+            >
+              {WEEK_DAYS.map(
+                (day) => (
+                  <Text
+                    key={
+                      day
+                    }
+                    style={
+                      styles.weekDayText
+                    }
+                  >
+                    {day}
+                  </Text>
+                ),
+              )}
+            </View>
+
+            {/* Days */}
+            <View
+              style={
+                styles.daysGrid
+              }
+            >
+              {calendarCells.map(
+                (
+                  day,
+                  index,
+                ) => {
+                  if (
+                    day ===
+                    null
+                  ) {
+                    return (
+                      <View
+                        key={`empty-${index}`}
+                        style={
+                          styles.dayCell
+                        }
+                      />
+                    );
+                  }
+
+                  const dateValue =
+                    formatDate(
+                      year,
+                      month,
+                      day,
+                    );
+
+                  const selected =
+                    value ===
+                    dateValue;
+
+                  return (
+                    <Pressable
+                      key={
+                        dateValue
+                      }
+                      style={[
+                        styles.dayCell,
+
+                        selected &&
+                          styles.selectedDay,
+                      ]}
+                      onPress={() =>
+                        selectDate(
+                          day,
+                        )
+                      }
+                    >
+                      <Text
+                        style={[
+                          styles.dayText,
+
+                          selected &&
+                            styles.selectedDayText,
+                        ]}
+                      >
+                        {day}
+                      </Text>
+                    </Pressable>
+                  );
+                },
+              )}
+            </View>
+
+            {/* Actions */}
+            <View
+              style={
+                styles.calendarActions
+              }
+            >
+              <Pressable
+                style={
+                  styles.calendarCancelButton
+                }
+                onPress={() =>
+                  setVisible(
+                    false,
+                  )
+                }
+              >
+                <Text
+                  style={
+                    styles.calendarCancelText
+                  }
+                >
+                  Cancel
+                </Text>
+              </Pressable>
+
+              <Pressable
+                style={
+                  styles.todayButton
+                }
+                onPress={
+                  selectToday
+                }
+              >
+                <Ionicons
+                  name="calendar"
+                  size={17}
+                  color={
+                    COLORS.white
+                  }
+                />
+
+                <Text
+                  style={
+                    styles.todayButtonText
+                  }
+                >
+                  Today
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
 const styles =
   StyleSheet.create({
     container: {
       flex: 1,
+
       backgroundColor:
         COLORS.background,
     },
 
     content: {
       width: '100%',
+
       maxWidth: 500,
+
       alignSelf:
         'center',
+
       paddingHorizontal:
         20,
     },
@@ -801,40 +1283,54 @@ const styles =
     header: {
       flexDirection:
         'row',
+
       alignItems:
         'center',
+
       gap: 14,
+
       marginBottom:
         22,
     },
 
     backButton: {
       width: 44,
+
       height: 44,
+
       borderRadius:
         14,
+
       backgroundColor:
         COLORS.white,
+
       borderWidth: 1,
+
       borderColor:
         COLORS.border,
+
       alignItems:
         'center',
+
       justifyContent:
         'center',
     },
 
     title: {
       fontSize: 23,
+
       fontWeight:
         '800',
+
       color:
         COLORS.heading,
     },
 
     subtitle: {
       marginTop: 3,
+
       fontSize: 13,
+
       color:
         COLORS.secondary,
     },
@@ -842,12 +1338,17 @@ const styles =
     formCard: {
       backgroundColor:
         COLORS.white,
+
       borderWidth: 1,
+
       borderColor:
         COLORS.border,
+
       borderRadius:
         20,
+
       padding: 19,
+
       gap: 20,
     },
 
@@ -857,53 +1358,68 @@ const styles =
 
     label: {
       fontSize: 13,
+
       fontWeight:
         '700',
+
       color:
         COLORS.heading,
     },
 
     loadingBox: {
       minHeight: 80,
+
       backgroundColor:
         COLORS.preview,
+
       borderRadius:
         12,
+
       alignItems:
         'center',
+
       justifyContent:
         'center',
+
       gap: 7,
     },
 
     loadingText: {
       color:
         COLORS.secondary,
+
       fontSize: 12,
     },
 
     emptyBox: {
       padding: 18,
+
       borderRadius:
         12,
+
       backgroundColor:
         COLORS.preview,
+
       alignItems:
         'center',
+
       gap: 7,
     },
 
     emptyText: {
       color:
         COLORS.secondary,
+
       fontSize: 12,
     },
 
     addApplianceText: {
       color:
         COLORS.teal,
+
       fontWeight:
         '700',
+
       fontSize: 12,
     },
 
@@ -913,16 +1429,23 @@ const styles =
 
     applianceOption: {
       minHeight: 67,
+
       borderWidth: 1,
+
       borderColor:
         COLORS.border,
+
       borderRadius:
         13,
+
       backgroundColor:
         COLORS.white,
+
       padding: 11,
+
       flexDirection:
         'row',
+
       alignItems:
         'center',
     },
@@ -930,39 +1453,50 @@ const styles =
     selectedApplianceOption: {
       borderColor:
         COLORS.teal,
+
       backgroundColor:
         COLORS.preview,
     },
 
     applianceIcon: {
       width: 43,
+
       height: 43,
+
       borderRadius:
         12,
+
       backgroundColor:
         COLORS.teal,
+
       alignItems:
         'center',
+
       justifyContent:
         'center',
     },
 
     applianceText: {
       flex: 1,
+
       marginLeft: 11,
     },
 
     applianceName: {
       fontSize: 14,
+
       fontWeight:
         '700',
+
       color:
         COLORS.heading,
     },
 
     applianceMeta: {
       marginTop: 3,
+
       fontSize: 11,
+
       color:
         COLORS.secondary,
     },
@@ -970,21 +1504,28 @@ const styles =
     typeContainer: {
       flexDirection:
         'row',
+
       flexWrap:
         'wrap',
+
       gap: 8,
     },
 
     typeButton: {
       paddingHorizontal:
         11,
+
       paddingVertical:
         8,
+
       borderRadius:
         9,
+
       borderWidth: 1,
+
       borderColor:
         COLORS.border,
+
       backgroundColor:
         COLORS.white,
     },
@@ -992,6 +1533,7 @@ const styles =
     selectedTypeButton: {
       borderColor:
         COLORS.teal,
+
       backgroundColor:
         COLORS.preview,
     },
@@ -999,7 +1541,9 @@ const styles =
     typeText: {
       color:
         COLORS.secondary,
+
       fontSize: 11,
+
       fontWeight:
         '600',
     },
@@ -1007,89 +1551,363 @@ const styles =
     selectedTypeText: {
       color:
         COLORS.teal,
+
       fontWeight:
         '700',
     },
 
-    inputRow: {
+    /* Calendar Field */
+
+    dateInput: {
       minHeight: 51,
+
       borderWidth: 1,
+
       borderColor:
         COLORS.illustrationLine,
+
       borderRadius:
         12,
-      flexDirection:
-        'row',
-      alignItems:
-        'center',
-      gap: 9,
+
+      backgroundColor:
+        COLORS.white,
+
       paddingHorizontal:
         13,
+
+      flexDirection:
+        'row',
+
+      alignItems:
+        'center',
+
+      justifyContent:
+        'space-between',
     },
 
-    input: {
-      flex: 1,
+    dateInputText: {
       color:
         COLORS.heading,
+
       fontSize: 14,
-      paddingVertical:
-        11,
+    },
+
+    datePlaceholder: {
+      color:
+        COLORS.secondary,
+    },
+
+    /* Calendar Modal */
+
+    modalOverlay: {
+      flex: 1,
+
+      backgroundColor:
+        'rgba(16, 56, 81, 0.35)',
+
+      justifyContent:
+        'center',
+
+      alignItems:
+        'center',
+
+      padding: 20,
+    },
+
+    calendarCard: {
+      width: '100%',
+
+      maxWidth: 390,
+
+      backgroundColor:
+        COLORS.white,
+
+      borderRadius:
+        20,
+
+      borderWidth: 1,
+
+      borderColor:
+        COLORS.border,
+
+      padding: 18,
+    },
+
+    calendarHeader: {
+      flexDirection:
+        'row',
+
+      justifyContent:
+        'space-between',
+
+      alignItems:
+        'center',
+
+      marginBottom:
+        17,
+    },
+
+    monthButton: {
+      width: 40,
+
+      height: 40,
+
+      borderRadius:
+        12,
+
+      backgroundColor:
+        COLORS.preview,
+
+      alignItems:
+        'center',
+
+      justifyContent:
+        'center',
+    },
+
+    monthTitle: {
+      color:
+        COLORS.heading,
+
+      fontSize: 16,
+
+      fontWeight:
+        '800',
+    },
+
+    weekRow: {
+      flexDirection:
+        'row',
+
+      marginBottom: 6,
+    },
+
+    weekDayText: {
+      width:
+        '14.285%',
+
+      textAlign:
+        'center',
+
+      color:
+        COLORS.secondary,
+
+      fontSize: 10,
+
+      fontWeight:
+        '700',
+    },
+
+    daysGrid: {
+      flexDirection:
+        'row',
+
+      flexWrap:
+        'wrap',
+    },
+
+    dayCell: {
+      width:
+        '14.285%',
+
+      aspectRatio: 1,
+
+      alignItems:
+        'center',
+
+      justifyContent:
+        'center',
+
+      borderRadius:
+        50,
+    },
+
+    dayText: {
+      fontSize: 13,
+
+      fontWeight:
+        '600',
+
+      color:
+        COLORS.heading,
+    },
+
+    selectedDay: {
+      backgroundColor:
+        COLORS.teal,
+    },
+
+    selectedDayText: {
+      color:
+        COLORS.white,
+
+      fontWeight:
+        '800',
+    },
+
+    calendarActions: {
+      marginTop: 16,
+
+      borderTopWidth: 1,
+
+      borderTopColor:
+        COLORS.border,
+
+      paddingTop: 14,
+
+      flexDirection:
+        'row',
+
+      justifyContent:
+        'flex-end',
+
+      gap: 9,
+    },
+
+    calendarCancelButton: {
+      minHeight: 42,
+
+      paddingHorizontal:
+        16,
+
+      borderRadius:
+        10,
+
+      borderWidth: 1,
+
+      borderColor:
+        COLORS.border,
+
+      backgroundColor:
+        COLORS.white,
+
+      justifyContent:
+        'center',
+
+      alignItems:
+        'center',
+    },
+
+    calendarCancelText: {
+      color:
+        COLORS.secondary,
+
+      fontSize: 12,
+
+      fontWeight:
+        '700',
+    },
+
+    todayButton: {
+      minHeight: 42,
+
+      paddingHorizontal:
+        16,
+
+      borderRadius:
+        10,
+
+      backgroundColor:
+        COLORS.teal,
+
+      flexDirection:
+        'row',
+
+      alignItems:
+        'center',
+
+      justifyContent:
+        'center',
+
+      gap: 6,
+    },
+
+    todayButtonText: {
+      color:
+        COLORS.white,
+
+      fontSize: 12,
+
+      fontWeight:
+        '700',
     },
 
     notesInput: {
       minHeight: 100,
+
       borderWidth: 1,
+
       borderColor:
         COLORS.illustrationLine,
+
       borderRadius:
         12,
+
       padding: 13,
+
       color:
         COLORS.heading,
+
       fontSize: 14,
     },
 
     errorBox: {
       flexDirection:
         'row',
+
       gap: 7,
+
       backgroundColor:
         '#FFF5F6',
+
       borderWidth: 1,
+
       borderColor:
         '#F1D3D7',
+
       borderRadius:
         10,
+
       padding: 10,
     },
 
     errorText: {
       flex: 1,
+
       color:
         COLORS.danger,
+
       fontSize: 12,
     },
 
     saveButton: {
       minHeight: 54,
+
       backgroundColor:
         COLORS.teal,
+
       borderRadius:
         13,
+
       flexDirection:
         'row',
+
       alignItems:
         'center',
+
       justifyContent:
         'center',
+
       gap: 8,
     },
 
     saveButtonText: {
       color:
         COLORS.white,
+
       fontWeight:
         '700',
+
       fontSize: 14,
     },
   });

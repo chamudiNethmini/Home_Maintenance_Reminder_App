@@ -19,6 +19,9 @@ export type HomeownerStackParams = {
   ScheduleMaintenance: {
     applianceId?: string;
   };
+  ReminderSettings: {
+  scheduleId?: string;
+};
 
   Profile: undefined;
 };

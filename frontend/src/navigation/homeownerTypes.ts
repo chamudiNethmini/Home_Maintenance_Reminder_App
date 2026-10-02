@@ -13,12 +13,20 @@ export type HomeownerStackParams = {
     applianceId: string;
   };
 
+  MaintenanceCalendar:
+    undefined;
+
+  ScheduleMaintenance: {
+    applianceId?: string;
+  };
+
   Profile: undefined;
 };
 
 export type HomeownerScreenProps<
   T extends keyof HomeownerStackParams,
-> = NativeStackScreenProps<
-  HomeownerStackParams,
-  T
->;
+> =
+  NativeStackScreenProps<
+    HomeownerStackParams,
+    T
+  >;

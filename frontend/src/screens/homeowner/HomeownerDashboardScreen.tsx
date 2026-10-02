@@ -60,6 +60,7 @@ export default function HomeownerDashboardScreen({
           </View>
 
           <View style={styles.headerActions}>
+            {/* Notifications - connect later */}
             <Pressable style={styles.iconButton}>
               <Ionicons
                 name="notifications-outline"
@@ -68,12 +69,13 @@ export default function HomeownerDashboardScreen({
               />
             </Pressable>
 
+            {/* Profile */}
             <Pressable
-  style={styles.profileButton}
-  onPress={() =>
-    navigation.navigate('Profile')
-  }
->
+              style={styles.profileButton}
+              onPress={() =>
+                navigation.navigate('Profile')
+              }
+            >
               <Ionicons
                 name="person-outline"
                 size={22}
@@ -127,7 +129,12 @@ export default function HomeownerDashboardScreen({
             </Text>
           </View>
 
-          <Pressable style={styles.reviewButton}>
+          <Pressable
+            style={styles.reviewButton}
+            onPress={() =>
+              navigation.navigate('MaintenanceCalendar')
+            }
+          >
             <Text style={styles.reviewButtonText}>
               Review
             </Text>
@@ -140,14 +147,18 @@ export default function HomeownerDashboardScreen({
             Upcoming Maintenance
           </Text>
 
-          <Pressable>
+          <Pressable
+            onPress={() =>
+              navigation.navigate('MaintenanceCalendar')
+            }
+          >
             <Text style={styles.seeAll}>
               See All
             </Text>
           </Pressable>
         </View>
 
-        {/* Maintenance Card 1 */}
+        {/* Temporary Maintenance Card 1 */}
         <View style={styles.maintenanceCard}>
           <View style={styles.applianceIcon}>
             <Ionicons
@@ -174,7 +185,7 @@ export default function HomeownerDashboardScreen({
           </View>
         </View>
 
-        {/* Maintenance Card 2 */}
+        {/* Temporary Maintenance Card 2 */}
         <View style={styles.maintenanceCard}>
           <View style={styles.applianceIcon}>
             <Ionicons
@@ -233,8 +244,13 @@ export default function HomeownerDashboardScreen({
             </Text>
           </Pressable>
 
-          {/* Calendar - connect later */}
-          <Pressable style={styles.quickActionCard}>
+          {/* Calendar */}
+          <Pressable
+            style={styles.quickActionCard}
+            onPress={() =>
+              navigation.navigate('MaintenanceCalendar')
+            }
+          >
             <View style={styles.quickActionIcon}>
               <Ionicons
                 name="calendar-outline"
@@ -340,8 +356,13 @@ export default function HomeownerDashboardScreen({
           </Text>
         </Pressable>
 
-        {/* Calendar - connect later */}
-        <Pressable style={styles.navigationItem}>
+        {/* Calendar */}
+        <Pressable
+          style={styles.navigationItem}
+          onPress={() =>
+            navigation.navigate('MaintenanceCalendar')
+          }
+        >
           <Ionicons
             name="calendar-outline"
             size={22}
@@ -353,24 +374,23 @@ export default function HomeownerDashboardScreen({
           </Text>
         </Pressable>
 
-        {/* Profile - connect later */}
+        {/* Profile */}
         <Pressable
-  style={styles.navigationItem}
-  onPress={() =>
-    navigation.navigate('Profile')
-  }
->
-  <Ionicons
-    name="person-outline"
-    size={22}
-    color={COLORS.secondary}
-  />
+          style={styles.navigationItem}
+          onPress={() =>
+            navigation.navigate('Profile')
+          }
+        >
+          <Ionicons
+            name="person-outline"
+            size={22}
+            color={COLORS.secondary}
+          />
 
-  <Text style={styles.navigationText}>
-    Profile
-  </Text>
-</Pressable>
-        
+          <Text style={styles.navigationText}>
+            Profile
+          </Text>
+        </Pressable>
       </View>
     </View>
   );

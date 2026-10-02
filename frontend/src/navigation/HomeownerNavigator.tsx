@@ -16,6 +16,11 @@ import ApplianceDetailsScreen
 
   import HomeownerProfileScreen
   from '../screens/homeowner/HomeownerProfileScreen';
+  import MaintenanceCalendarScreen
+  from '../screens/homeowner/MaintenanceCalendarScreen';
+
+import ScheduleMaintenanceScreen
+  from '../screens/homeowner/ScheduleMaintenanceScreen';
 import type {
   HomeownerStackParams,
 } from './homeownerTypes';
@@ -63,6 +68,19 @@ export default function HomeownerNavigator() {
       <Stack.Screen
   name="Profile"
   component={HomeownerProfileScreen}
+/>
+<Stack.Screen
+  name="MaintenanceCalendar"
+  component={
+    MaintenanceCalendarScreen
+  }
+/>
+
+<Stack.Screen
+  name="ScheduleMaintenance"
+  component={
+    ScheduleMaintenanceScreen
+  }
 />
     </Stack.Navigator>
   );

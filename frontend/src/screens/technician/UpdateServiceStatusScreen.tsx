@@ -1,278 +1,343 @@
 import React, { useState } from 'react';
 
 import {
-  Alert,
-  Pressable,
   SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
   View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Pressable,
+  TextInput,
+  ActivityIndicator,
 } from 'react-native';
 
 import {
-  NativeStackNavigationProp,
-} from '@react-navigation/native-stack';
+  useNavigation,
+  NavigationProp,
+  useRoute,
+} from '@react-navigation/native';
 
-import { useNavigation } from '@react-navigation/native';
+import type { RouteProp } from '@react-navigation/native';
 
 import type { TechnicianStackParamList } from '../../navigation/technicianTypes';
 
-type NavigationProp =
-  NativeStackNavigationProp<TechnicianStackParamList>;
+import { useAuth } from '../../components/auth/AuthContext';
+
+import {
+  updateServiceRequestStatus,
+} from '../../services/serviceRequestService';
+
+import {
+  addRepairHistory,
+} from '../../services/repairHistoryService';
+
+import type {
+  ServiceRequestStatus,
+} from '../../types/serviceRequest';
+
+type Navigation =
+  NavigationProp<TechnicianStackParamList>;
+
+type UpdateServiceStatusRouteProp =
+  RouteProp<
+    TechnicianStackParamList,
+    'UpdateServiceStatus'
+  >;
 
 type ServiceStatus =
-  'Pending' | 'In Progress' | 'Completed';
+  | 'Pending'
+  | 'In Progress'
+  | 'Completed';
 
 export default function UpdateServiceStatusScreen() {
   const navigation =
-    useNavigation<NavigationProp>();
+    useNavigation<Navigation>();
+
+  const route =
+    useRoute<UpdateServiceStatusRouteProp>();
+
+  const { serviceRequestId } =
+    route.params;
+
+  const { user } = useAuth();
 
   const [status, setStatus] =
-    useState<ServiceStatus>('In Progress');
+    useState<ServiceStatus>('Pending');
+
+  const [notes, setNotes] =
+    useState('');
 
   const [showStatusOptions, setShowStatusOptions] =
     useState(false);
 
-  const [notes, setNotes] = useState('');
+  const [saving, setSaving] =
+    useState(false);
 
-  const handleSaveStatus = () => {
-    Alert.alert(
-      'Status Updated',
-      `Service status updated to "${status}".`,
-      [
-        {
-          text: 'OK',
-          onPress: () => navigation.goBack(),
-        },
-      ],
-    );
+  const [errorMessage, setErrorMessage] =
+    useState('');
+
+  const statusOptions: ServiceStatus[] = [
+    'Pending',
+    'In Progress',
+    'Completed',
+  ];
+
+  const handleSaveStatus = async () => {
+    if (saving) {
+      return;
+    }
+
+    if (!user?.uid) {
+      setErrorMessage(
+        'Please log in again before updating the service status.',
+      );
+      return;
+    }
+
+    setSaving(true);
+    setErrorMessage('');
+
+    try {
+      const firestoreStatus: ServiceRequestStatus =
+        status === 'Pending'
+          ? 'pending'
+          : status === 'In Progress'
+            ? 'inProgress'
+            : 'completed';
+
+      // Update service request status
+      await updateServiceRequestStatus(
+        serviceRequestId,
+        firestoreStatus,
+      );
+
+      // Create repair history when repair is completed
+      if (status === 'Completed') {
+        await addRepairHistory({
+          serviceRequestId,
+          applianceId: serviceRequestId,
+          applianceName: 'Washing Machine',
+          technicianId: user.uid,
+          status: 'completed',
+          repairNotes:
+            notes.trim() || 'Repair completed',
+          completedDate:
+            new Date()
+              .toISOString()
+              .split('T')[0],
+        });
+      }
+
+      // Go directly to Repair History
+      navigation.navigate(
+        'RepairHistory',
+      );
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : 'Could not update the service status.',
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <ScrollView
-          contentContainerStyle={styles.contentContainer}
-          showsVerticalScrollIndicator={false}
-        >
-
-          {/* Header */}
-          <View style={styles.header}>
-            <View>
-              <Text style={styles.brandName}>
-                <Text style={styles.homeText}>
-                  Home
-                </Text>
-                <Text style={styles.careText}>
-                  Care
-                </Text>
-              </Text>
-
-              <Text style={styles.tagline}>
-                Care for Every Home
-              </Text>
-            </View>
-
-            <View style={styles.profileCircle}>
-              <Text style={styles.profileEmoji}>
-                👷
-              </Text>
-            </View>
-          </View>
-
-          {/* Back + Title */}
-          <View style={styles.titleSection}>
-            <Pressable
-              style={styles.backButton}
-              onPress={() => navigation.goBack()}
-            >
-              <Text style={styles.backIcon}>
-                ‹
-              </Text>
-            </Pressable>
-
-            <View style={styles.titleTextContainer}>
-              <Text style={styles.pageTitle}>
-                Update Service Status
-              </Text>
-
-              <Text style={styles.pageSubtitle}>
-                Update the repair progress and add notes
-              </Text>
-            </View>
-          </View>
-
-          {/* Appliance Information */}
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>
-              Appliance Information
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={
+          styles.contentContainer
+        }
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.logoText}>
+              HomeCare
             </Text>
 
-            <View style={styles.applianceRow}>
-              <View style={styles.applianceIconBox}>
-                <Text style={styles.applianceEmoji}>
-                  🧺
-                </Text>
-              </View>
-
-              <View style={styles.applianceDetails}>
-                <Text style={styles.applianceName}>
-                  Washing Machine
-                </Text>
-
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>
-                    Model
-                  </Text>
-
-                  <Text style={styles.colon}>
-                    :
-                  </Text>
-
-                  <Text style={styles.infoValue}>
-                    Samsung
-                  </Text>
-                </View>
-
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>
-                    Serial Number
-                  </Text>
-
-                  <Text style={styles.colon}>
-                    :
-                  </Text>
-
-                  <Text style={styles.infoValue}>
-                    W88910
-                  </Text>
-                </View>
-              </View>
-            </View>
+            <Text style={styles.tagline}>
+              Care for Every Home
+            </Text>
           </View>
 
-          {/* Service Progress */}
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>
-              Service Progress
+          <View style={styles.profileCircle}>
+            <Text style={styles.profileEmoji}>
+              👷
+            </Text>
+          </View>
+        </View>
+
+        {/* Title */}
+        <View style={styles.titleRow}>
+          <Pressable
+            style={styles.backButton}
+            onPress={() =>
+              navigation.goBack()
+            }
+          >
+            <Text style={styles.backArrow}>
+              ‹
+            </Text>
+          </Pressable>
+
+          <View style={styles.titleContent}>
+            <Text style={styles.pageTitle}>
+              Update Service Status
             </Text>
 
-            <View style={styles.progressContainer}>
+            <Text style={styles.pageSubtitle}>
+              Update the repair progress and add notes
+            </Text>
+          </View>
+        </View>
 
-              {/* Pending */}
-              <View style={styles.progressStep}>
-                <View
-                  style={[
-                    styles.progressCircle,
-                    styles.progressCircleActive,
-                  ]}
-                >
-                  <Text style={styles.progressNumber}>
-                    1
-                  </Text>
-                </View>
+        <View style={styles.divider} />
 
-                <Text style={styles.progressText}>
-                  Pending
-                </Text>
-              </View>
+        {/* Appliance Information */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>
+            Appliance Information
+          </Text>
 
-              {/* Line 1 */}
+          <View style={styles.applianceRow}>
+            <View style={styles.applianceIconBox}>
+              <Text style={styles.applianceEmoji}>
+                🧺
+              </Text>
+            </View>
+
+            <View style={styles.applianceDetails}>
+              <Text style={styles.applianceName}>
+                Washing Machine
+              </Text>
+
+              <Text style={styles.applianceText}>
+                Model: Samsung
+              </Text>
+
+              <Text style={styles.applianceText}>
+                Serial Number: W88910
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Service Progress */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>
+            Service Progress
+          </Text>
+
+          <View style={styles.progressContainer}>
+            <View style={styles.progressStep}>
               <View
                 style={[
-                  styles.progressLine,
-                  status === 'Pending' &&
-                    styles.progressLineInactive,
+                  styles.progressCircle,
+                  status === 'Pending' ||
+                  status === 'In Progress' ||
+                  status === 'Completed'
+                    ? styles.progressCircleActive
+                    : null,
                 ]}
-              />
-
-              {/* In Progress */}
-              <View style={styles.progressStep}>
-                <View
-                  style={[
-                    styles.progressCircle,
-                    status === 'In Progress' ||
-                    status === 'Completed'
-                      ? styles.progressCircleActive
-                      : styles.progressCircleInactive,
-                  ]}
+              >
+                <Text
+                  style={
+                    styles.progressNumber
+                  }
                 >
-                  <Text style={styles.progressNumber}>
-                    2
-                  </Text>
-                </View>
-
-                <Text style={styles.progressText}>
-                  In Progress
+                  1
                 </Text>
               </View>
 
-              {/* Line 2 */}
+              <Text style={styles.progressLabel}>
+                Pending
+              </Text>
+            </View>
+
+            <View style={styles.progressLine} />
+
+            <View style={styles.progressStep}>
               <View
                 style={[
-                  styles.progressLine,
-                  status !== 'Completed' &&
-                    styles.progressLineInactive,
+                  styles.progressCircle,
+                  status === 'In Progress' ||
+                  status === 'Completed'
+                    ? styles.progressCircleActive
+                    : styles.progressCircleInactive,
                 ]}
-              />
-
-              {/* Completed */}
-              <View style={styles.progressStep}>
-                <View
-                  style={[
-                    styles.progressCircle,
-                    status === 'Completed'
-                      ? styles.progressCircleActive
-                      : styles.progressCircleInactive,
-                  ]}
+              >
+                <Text
+                  style={
+                    styles.progressNumber
+                  }
                 >
-                  <Text style={styles.progressNumber}>
-                    3
-                  </Text>
-                </View>
-
-                <Text style={styles.progressText}>
-                  Completed
+                  2
                 </Text>
               </View>
 
+              <Text style={styles.progressLabel}>
+                In Progress
+              </Text>
+            </View>
+
+            <View style={styles.progressLine} />
+
+            <View style={styles.progressStep}>
+              <View
+                style={[
+                  styles.progressCircle,
+                  status === 'Completed'
+                    ? styles.progressCircleActive
+                    : styles.progressCircleInactive,
+                ]}
+              >
+                <Text
+                  style={
+                    styles.progressNumber
+                  }
+                >
+                  3
+                </Text>
+              </View>
+
+              <Text style={styles.progressLabel}>
+                Completed
+              </Text>
             </View>
           </View>
+        </View>
 
-          {/* Current Status */}
-          <View style={styles.inputSection}>
-            <Text style={styles.fieldTitle}>
-              Current Status
+        {/* Current Status */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>
+            Current Status
+          </Text>
+
+          <Pressable
+            style={styles.statusSelector}
+            onPress={() =>
+              setShowStatusOptions(
+                !showStatusOptions,
+              )
+            }
+          >
+            <Text style={styles.statusText}>
+              {status}
             </Text>
 
-            <Pressable
-              style={styles.statusSelector}
-              onPress={() =>
-                setShowStatusOptions(
-                  (current) => !current,
-                )
-              }
-            >
-              <Text style={styles.statusText}>
-                {status}
-              </Text>
+            <Text style={styles.dropdownArrow}>
+              ▾
+            </Text>
+          </Pressable>
 
-              <Text style={styles.dropdownIcon}>
-                {showStatusOptions ? '⌃' : '⌄'}
-              </Text>
-            </Pressable>
-
-            {showStatusOptions && (
-              <View style={styles.statusOptions}>
-                {(
-                  [
-                    'Pending',
-                    'In Progress',
-                    'Completed',
-                  ] as ServiceStatus[]
-                ).map((option) => (
+          {showStatusOptions && (
+            <View style={styles.statusOptions}>
+              {statusOptions.map(
+                (option) => (
                   <Pressable
                     key={option}
                     style={[
@@ -282,53 +347,85 @@ export default function UpdateServiceStatusScreen() {
                     ]}
                     onPress={() => {
                       setStatus(option);
-                      setShowStatusOptions(false);
+                      setShowStatusOptions(
+                        false,
+                      );
                     }}
                   >
                     <Text
                       style={[
                         styles.statusOptionText,
                         option === status &&
-                          styles.selectedStatusText,
+                          styles.selectedStatusOptionText,
                       ]}
                     >
                       {option}
                     </Text>
                   </Pressable>
-                ))}
-              </View>
-            )}
-          </View>
+                ),
+              )}
+            </View>
+          )}
+        </View>
 
-          {/* Notes */}
-          <View style={styles.inputSection}>
-            <Text style={styles.fieldTitle}>
-              Notes
+        {/* Repair Notes */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>
+            Repair Notes
+          </Text>
+
+          <TextInput
+            style={styles.notesInput}
+            value={notes}
+            onChangeText={setNotes}
+            placeholder="Enter repair details or notes..."
+            placeholderTextColor="#58717F"
+            multiline
+            textAlignVertical="top"
+          />
+        </View>
+
+        {/* Error */}
+        {errorMessage ? (
+          <View style={styles.errorBox}>
+            <Text style={styles.errorText}>
+              {errorMessage}
             </Text>
-
-            <TextInput
-              style={styles.notesInput}
-              value={notes}
-              onChangeText={setNotes}
-              placeholder="Add notes about the repair..."
-              placeholderTextColor="#58717F"
-              multiline
-              textAlignVertical="top"
-            />
           </View>
+        ) : null}
 
-          {/* Save Button */}
-          <Pressable
-            style={styles.saveButton}
-            onPress={handleSaveStatus}
-          >
-            <Text style={styles.saveButtonText}>
+        {/* Save Button */}
+        <Pressable
+          style={[
+            styles.saveButton,
+            saving &&
+              styles.saveButtonDisabled,
+          ]}
+          onPress={handleSaveStatus}
+          disabled={saving}
+        >
+          {saving ? (
+            <View style={styles.savingContent}>
+              <ActivityIndicator
+                size="small"
+                color="#FFFFFF"
+              />
+
+              <Text
+                style={styles.saveButtonText}
+              >
+                Saving...
+              </Text>
+            </View>
+          ) : (
+            <Text
+              style={styles.saveButtonText}
+            >
               Save Status
             </Text>
-          </Pressable>
-
-        </ScrollView>
-      </View>
+          )}
+        </Pressable>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -344,7 +441,6 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     maxWidth: 550,
-    alignSelf: 'center',
     backgroundColor: '#F4F8FA',
   },
 
@@ -357,34 +453,21 @@ const styles = StyleSheet.create({
 
   header: {
     height: 78,
-    backgroundColor: '#FFFFFF',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#DEE8ED',
   },
 
-  brandName: {
-    fontSize: 22,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-  },
-
-  homeText: {
+  logoText: {
+    fontSize: 23,
+    fontWeight: '700',
     color: '#103851',
   },
 
-  careText: {
-    color: '#0EA5C6',
-  },
-
   tagline: {
-    marginTop: 1,
+    marginTop: 2,
     fontSize: 11,
     color: '#58717F',
-    fontWeight: '500',
   },
 
   profileCircle: {
@@ -397,44 +480,37 @@ const styles = StyleSheet.create({
   },
 
   profileEmoji: {
-    fontSize: 23,
+    fontSize: 22,
   },
 
   /* Title */
 
-  titleSection: {
+  titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 22,
-    marginBottom: 18,
+    marginTop: 8,
   },
 
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#DEE8ED',
+    width: 34,
+    height: 44,
     justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
+    alignItems: 'flex-start',
   },
 
-  backIcon: {
-    fontSize: 31,
-    lineHeight: 31,
+  backArrow: {
+    fontSize: 35,
+    lineHeight: 35,
     color: '#103851',
-    marginTop: -3,
   },
 
-  titleTextContainer: {
+  titleContent: {
     flex: 1,
   },
 
   pageTitle: {
-    fontSize: 27,
-    fontWeight: '800',
+    fontSize: 26,
+    fontWeight: '700',
     color: '#103851',
   },
 
@@ -444,19 +520,26 @@ const styles = StyleSheet.create({
     color: '#58717F',
   },
 
+  divider: {
+    height: 1,
+    backgroundColor: '#DEE8ED',
+    marginTop: 10,
+    marginBottom: 16,
+  },
+
   /* Cards */
 
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#DEE8ED',
-    padding: 18,
-    marginBottom: 16,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 14,
   },
 
-  sectionTitle: {
-    fontSize: 17,
+  cardTitle: {
+    fontSize: 16,
     fontWeight: '700',
     color: '#103851',
     marginBottom: 14,
@@ -470,19 +553,19 @@ const styles = StyleSheet.create({
   },
 
   applianceIconBox: {
-    width: 58,
-    height: 58,
-    borderRadius: 14,
+    width: 52,
+    height: 52,
+    borderRadius: 12,
     backgroundColor: '#F1F9F9',
     borderWidth: 1,
     borderColor: '#DEE8ED',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 14,
+    marginRight: 12,
   },
 
   applianceEmoji: {
-    fontSize: 27,
+    fontSize: 25,
   },
 
   applianceDetails: {
@@ -490,35 +573,16 @@ const styles = StyleSheet.create({
   },
 
   applianceName: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
     color: '#103851',
-    marginBottom: 6,
+    marginBottom: 4,
   },
 
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 3,
-  },
-
-  infoLabel: {
-    width: 88,
+  applianceText: {
     fontSize: 12,
     color: '#58717F',
-  },
-
-  colon: {
-    width: 15,
-    fontSize: 12,
-    color: '#58717F',
-  },
-
-  infoValue: {
-    flex: 1,
-    fontSize: 12,
-    color: '#103851',
-    fontWeight: '600',
+    marginBottom: 2,
   },
 
   /* Progress */
@@ -526,108 +590,88 @@ const styles = StyleSheet.create({
   progressContainer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
   },
 
   progressStep: {
     alignItems: 'center',
-    width: 82,
+    width: 65,
   },
 
   progressCircle: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: '#F1F9F9',
-    borderWidth: 2,
-    borderColor: '#DEE8ED',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     justifyContent: 'center',
     alignItems: 'center',
   },
 
   progressCircleActive: {
     backgroundColor: '#0EA5C6',
-    borderColor: '#0EA5C6',
   },
 
   progressCircleInactive: {
-    backgroundColor: '#F1F9F9',
-  },
-
-  progressNumber: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#103851',
-  },
-
-  progressLine: {
-    height: 2,
-    flex: 1,
-    backgroundColor: '#0EA5C6',
-    marginTop: 21,
-  },
-
-  progressLineInactive: {
     backgroundColor: '#CEDCE3',
   },
 
-  progressText: {
-    marginTop: 8,
-    fontSize: 11,
-    fontWeight: '600',
+  progressNumber: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+
+  progressLine: {
+    flex: 1,
+    height: 3,
+    backgroundColor: '#0EA5C6',
+    marginTop: 15,
+    marginHorizontal: 3,
+  },
+
+  progressLabel: {
+    marginTop: 7,
+    fontSize: 10,
     color: '#58717F',
     textAlign: 'center',
   },
 
-  /* Inputs */
-
-  inputSection: {
-    marginBottom: 18,
-  },
-
-  fieldTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#103851',
-    marginBottom: 9,
-    marginLeft: 2,
-  },
+  /* Status */
 
   statusSelector: {
-    minHeight: 52,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    minHeight: 44,
     borderWidth: 1,
     borderColor: '#DEE8ED',
-    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: '#F1F9F9',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: 13,
   },
 
   statusText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    color: '#58717F',
+    color: '#103851',
   },
 
-  dropdownIcon: {
-    fontSize: 23,
+  dropdownArrow: {
+    fontSize: 17,
     color: '#58717F',
   },
 
   statusOptions: {
-    backgroundColor: '#FFFFFF',
+    marginTop: 7,
     borderWidth: 1,
     borderColor: '#DEE8ED',
-    borderRadius: 14,
-    marginTop: 6,
+    borderRadius: 12,
     overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
   },
 
   statusOption: {
-    paddingHorizontal: 16,
-    paddingVertical: 13,
+    paddingVertical: 12,
+    paddingHorizontal: 13,
     borderBottomWidth: 1,
     borderBottomColor: '#DEE8ED',
   },
@@ -637,41 +681,70 @@ const styles = StyleSheet.create({
   },
 
   statusOptionText: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#58717F',
   },
 
-  selectedStatusText: {
+  selectedStatusOptionText: {
     color: '#087F80',
     fontWeight: '700',
   },
 
+  /* Notes */
+
   notesInput: {
-    height: 120,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    minHeight: 92,
     borderWidth: 1,
     borderColor: '#DEE8ED',
-    paddingHorizontal: 15,
-    paddingVertical: 13,
+    borderRadius: 12,
+    backgroundColor: '#F1F9F9',
+    paddingHorizontal: 13,
+    paddingVertical: 12,
     fontSize: 13,
     color: '#103851',
+  },
+
+  /* Error */
+
+  errorBox: {
+    backgroundColor: '#FFF3F3',
+    borderWidth: 1,
+    borderColor: '#F0CACA',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 14,
+  },
+
+  errorText: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: '#A33A3A',
   },
 
   /* Save */
 
   saveButton: {
-    height: 52,
-    backgroundColor: '#087F80',
+    minHeight: 48,
     borderRadius: 14,
+    backgroundColor: '#087F80',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 4,
+    marginTop: 2,
+  },
+
+  saveButtonDisabled: {
+    opacity: 0.7,
   },
 
   saveButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
+  },
+
+  savingContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
 });

@@ -4,6 +4,7 @@ import TechnicianDashboardScreen from '../screens/technician/TechnicianDashboard
 import ServiceRequestsScreen from '../screens/technician/ServiceRequestsScreen';
 import ApplianceInformationScreen from '../screens/technician/ApplianceInformationScreen';
 import UpdateServiceStatusScreen from '../screens/technician/UpdateServiceStatusScreen';
+import RepairHistoryScreen from '../screens/technician/RepairHistoryScreen';
 
 import type { TechnicianStackParamList } from './technicianTypes';
 
@@ -35,6 +36,11 @@ export default function TechnicianNavigator() {
       <Stack.Screen
         name="UpdateServiceStatus"
         component={UpdateServiceStatusScreen}
+      />
+
+      <Stack.Screen
+        name="RepairHistory"
+        component={RepairHistoryScreen}
       />
     </Stack.Navigator>
   );

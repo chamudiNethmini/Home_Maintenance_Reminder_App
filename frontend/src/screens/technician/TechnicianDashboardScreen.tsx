@@ -252,8 +252,13 @@ export default function TechnicianDashboardScreen() {
             </Text>
           </Pressable>
 
-          {/* History */}
-          <Pressable style={styles.navItem}>
+         {/* History */}
+<Pressable
+  style={styles.navItem}
+  onPress={() =>
+    navigation.navigate('RepairHistory')
+  }
+>
             <Text style={styles.navIconInactive}>
               📋
             </Text>

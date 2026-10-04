@@ -1,6 +1,15 @@
 export type TechnicianStackParamList = {
   TechnicianDashboard: undefined;
+
   ServiceRequests: undefined;
-  ApplianceInformation: undefined;
-  UpdateServiceStatus: undefined;
+
+  ApplianceInformation: {
+    serviceRequestId: string;
+  };
+
+  UpdateServiceStatus: {
+    serviceRequestId: string;
+  };
+
+  RepairHistory: undefined;
 };

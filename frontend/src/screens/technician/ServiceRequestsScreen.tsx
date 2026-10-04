@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+
 import {
+  ActivityIndicator,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -7,9 +9,21 @@ import {
   Text,
   View,
 } from 'react-native';
+
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 import type { TechnicianStackParamList } from '../../navigation/technicianTypes';
+
+import { useAuth } from '../../components/auth/AuthContext';
+
+import {
+  getTechnicianServiceRequests,
+} from '../../services/serviceRequestService';
+
+import type {
+  ServiceRequest,
+  ServiceRequestStatus,
+} from '../../types/serviceRequest';
 
 type Props = NativeStackScreenProps<
   TechnicianStackParamList,
@@ -21,50 +35,6 @@ type RequestStatus =
   | 'In Progress'
   | 'Completed';
 
-type ServiceRequest = {
-  id: string;
-  appliance: string;
-  customer: string;
-  problem: string;
-  status: RequestStatus;
-  icon: string;
-};
-
-const requests: ServiceRequest[] = [
-  {
-    id: 'SR-1001',
-    appliance: 'Washing Machine',
-    customer: 'Kumar',
-    problem: 'Not working',
-    status: 'Pending',
-    icon: '🧺',
-  },
-  {
-    id: 'SR-1002',
-    appliance: 'Refrigerator',
-    customer: 'Ahamed',
-    problem: 'Not cooling',
-    status: 'In Progress',
-    icon: '▯',
-  },
-  {
-    id: 'SR-1003',
-    appliance: 'Air Conditioner',
-    customer: 'Fathima',
-    problem: 'No power',
-    status: 'Completed',
-    icon: '❄️',
-  },
-  {
-    id: 'SR-1004',
-    appliance: 'Washing Machine',
-    customer: 'Nisha',
-    problem: 'Water leakage',
-    status: 'Pending',
-    icon: '🧺',
-  },
-];
-
 const filters: Array<'All' | RequestStatus> = [
   'All',
   'Pending',
@@ -72,25 +42,109 @@ const filters: Array<'All' | RequestStatus> = [
   'Completed',
 ];
 
+function getDisplayStatus(
+  status: ServiceRequestStatus,
+): RequestStatus {
+  if (status === 'inProgress') {
+    return 'In Progress';
+  }
+
+  if (status === 'completed') {
+    return 'Completed';
+  }
+
+  return 'Pending';
+}
+
+function getApplianceIcon(
+  applianceName: string,
+): string {
+  const name = applianceName.toLowerCase();
+
+  if (name.includes('washing')) {
+    return '🧺';
+  }
+
+  if (name.includes('refrigerator')) {
+    return '▯';
+  }
+
+  if (
+    name.includes('air conditioner') ||
+    name.includes('ac')
+  ) {
+    return '❄️';
+  }
+
+  return '🔧';
+}
+
 export default function ServiceRequestsScreen({
   navigation,
 }: Props) {
+  const { user } = useAuth();
+
+  const [requests, setRequests] =
+    useState<ServiceRequest[]>([]);
+
   const [selectedFilter, setSelectedFilter] =
     useState<'All' | RequestStatus>('All');
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState('');
+
+  const loadRequests = async () => {
+    if (!user?.uid) {
+      setRequests([]);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError('');
+
+      const data =
+        await getTechnicianServiceRequests(
+          user.uid,
+        );
+
+      setRequests(data);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : 'Could not load service requests.',
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadRequests();
+  }, [user?.uid]);
 
   const filteredRequests =
     selectedFilter === 'All'
       ? requests
       : requests.filter(
           (request) =>
-            request.status === selectedFilter,
+            getDisplayStatus(
+              request.status,
+            ) === selectedFilter,
         );
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.contentContainer}
+        contentContainerStyle={
+          styles.contentContainer
+        }
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
@@ -115,9 +169,13 @@ export default function ServiceRequestsScreen({
         {/* Back Button */}
         <Pressable
           style={styles.backButton}
-          onPress={() => navigation.goBack()}
+          onPress={() =>
+            navigation.goBack()
+          }
         >
-          <Text style={styles.backArrow}>‹</Text>
+          <Text style={styles.backArrow}>
+            ‹
+          </Text>
 
           <Text style={styles.backText}>
             Back
@@ -139,7 +197,9 @@ export default function ServiceRequestsScreen({
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterContainer}
+          contentContainerStyle={
+            styles.filterContainer
+          }
         >
           {filters.map((filter) => {
             const isSelected =
@@ -171,80 +231,155 @@ export default function ServiceRequestsScreen({
           })}
         </ScrollView>
 
-        {/* Service Requests */}
-        <View style={styles.requestsContainer}>
-          {filteredRequests.map((request) => (
+        {/* Loading */}
+        {loading && (
+          <View style={styles.messageContainer}>
+            <ActivityIndicator
+              size="small"
+              color="#087F80"
+            />
+
+            <Text style={styles.messageText}>
+              Loading service requests...
+            </Text>
+          </View>
+        )}
+
+        {/* Error */}
+        {!loading && error !== '' && (
+          <View style={styles.messageCard}>
+            <Text style={styles.messageTitle}>
+              Could not load requests
+            </Text>
+
+            <Text style={styles.messageText}>
+              {error}
+            </Text>
+
             <Pressable
-              key={request.id}
-              style={styles.requestCard}
+              style={styles.retryButton}
               onPress={() =>
-                navigation.navigate(
-                  'ApplianceInformation',
-                )
+                void loadRequests()
               }
             >
-              {/* Appliance Icon */}
-              <View style={styles.applianceIcon}>
-                <Text style={styles.applianceEmoji}>
-                  {request.icon}
-                </Text>
-              </View>
+              <Text style={styles.retryText}>
+                Try Again
+              </Text>
+            </Pressable>
+          </View>
+        )}
 
-              {/* Request Information */}
-              <View style={styles.requestInfo}>
-                <Text style={styles.requestId}>
-                  {request.id}
-                </Text>
+        {/* Empty */}
+        {!loading &&
+          error === '' &&
+          filteredRequests.length === 0 && (
+            <View style={styles.messageCard}>
+              <Text style={styles.messageTitle}>
+                No Service Requests
+              </Text>
 
-                <Text style={styles.applianceName}>
-                  {request.appliance}
-                </Text>
+              <Text style={styles.messageText}>
+                There are no service requests for
+                this technician.
+              </Text>
+            </View>
+          )}
 
-                <Text style={styles.customerText}>
-                  Customer: {request.customer}
-                </Text>
+        {/* Service Requests */}
+        {!loading &&
+          error === '' &&
+          filteredRequests.map((request) => {
+            const displayStatus =
+              getDisplayStatus(
+                request.status,
+              );
 
-                <Text style={styles.problemText}>
-                  {request.problem}
-                </Text>
-              </View>
-
-              {/* Status */}
-              <View style={styles.rightSection}>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    request.status ===
-                      'Pending' &&
-                      styles.pendingBadge,
-                    request.status ===
-                      'In Progress' &&
-                      styles.progressBadge,
-                    request.status ===
-                      'Completed' &&
-                      styles.completedBadge,
-                  ]}
-                >
-                  <Text style={styles.statusText}>
-                    {request.status}
+            return (
+              <Pressable
+                key={request.id}
+                style={styles.requestCard}
+                onPress={() =>
+                  navigation.navigate(
+                    'ApplianceInformation',
+                    {
+                      serviceRequestId:
+                        request.id,
+                    },
+                  )
+                }
+              >
+                {/* Appliance Icon */}
+                <View style={styles.applianceIcon}>
+                  <Text
+                    style={styles.applianceEmoji}
+                  >
+                    {getApplianceIcon(
+                      request.applianceName,
+                    )}
                   </Text>
                 </View>
 
-                <Text style={styles.chevron}>
-                  ›
-                </Text>
-              </View>
-            </Pressable>
-          ))}
-        </View>
+                {/* Request Information */}
+                <View style={styles.requestInfo}>
+                  <Text style={styles.requestId}>
+                    {request.requestId}
+                  </Text>
+
+                  <Text
+                    style={styles.applianceName}
+                  >
+                    {request.applianceName}
+                  </Text>
+
+                  <Text
+                    style={styles.customerText}
+                  >
+                    Customer: {request.customerName}
+                  </Text>
+
+                  <Text
+                    style={styles.problemText}
+                  >
+                    {request.problemDescription}
+                  </Text>
+                </View>
+
+                {/* Status */}
+                <View style={styles.rightSection}>
+                  <View
+                    style={[
+                      styles.statusBadge,
+                      displayStatus ===
+                        'Pending' &&
+                        styles.pendingBadge,
+                      displayStatus ===
+                        'In Progress' &&
+                        styles.progressBadge,
+                      displayStatus ===
+                        'Completed' &&
+                        styles.completedBadge,
+                    ]}
+                  >
+                    <Text
+                      style={styles.statusText}
+                    >
+                      {displayStatus}
+                    </Text>
+                  </View>
+
+                  <Text style={styles.chevron}>
+                    ›
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          })}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  /* Main Screen */
-
   safeArea: {
     flex: 1,
     backgroundColor: '#F4F8FA',
@@ -265,7 +400,6 @@ const styles = StyleSheet.create({
   },
 
   /* Header */
-
   header: {
     height: 78,
     flexDirection: 'row',
@@ -299,7 +433,6 @@ const styles = StyleSheet.create({
   },
 
   /* Back Button */
-
   backButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -321,7 +454,6 @@ const styles = StyleSheet.create({
   },
 
   /* Page Title */
-
   titleSection: {
     marginBottom: 18,
   },
@@ -339,7 +471,6 @@ const styles = StyleSheet.create({
   },
 
   /* Filters */
-
   filterContainer: {
     paddingVertical: 4,
     paddingBottom: 18,
@@ -372,12 +503,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 
-  /* Requests */
-
-  requestsContainer: {
-    gap: 14,
-  },
-
+  /* Request Card */
   requestCard: {
     minHeight: 128,
     backgroundColor: '#FFFFFF',
@@ -385,11 +511,10 @@ const styles = StyleSheet.create({
     borderColor: '#DEE8ED',
     borderRadius: 16,
     padding: 14,
+    marginBottom: 14,
     flexDirection: 'row',
     alignItems: 'center',
   },
-
-  /* Appliance Icon */
 
   applianceIcon: {
     width: 56,
@@ -405,8 +530,6 @@ const styles = StyleSheet.create({
   applianceEmoji: {
     fontSize: 25,
   },
-
-  /* Request Information */
 
   requestInfo: {
     flex: 1,
@@ -440,7 +563,6 @@ const styles = StyleSheet.create({
   },
 
   /* Right Section */
-
   rightSection: {
     alignItems: 'flex-end',
     justifyContent: 'space-between',
@@ -479,5 +601,50 @@ const styles = StyleSheet.create({
     fontSize: 27,
     fontWeight: '300',
     marginRight: 3,
+  },
+
+  /* Loading / Empty / Error */
+  messageContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+
+  messageCard: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#DEE8ED',
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+
+  messageTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#103851',
+    marginBottom: 6,
+  },
+
+  messageText: {
+    fontSize: 13,
+    color: '#58717F',
+    textAlign: 'center',
+    marginTop: 5,
+  },
+
+  retryButton: {
+    marginTop: 15,
+    backgroundColor: '#087F80',
+    borderRadius: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+
+  retryText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
   },
 });

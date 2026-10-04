@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   SafeAreaView,
   ScrollView,
@@ -12,6 +12,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import type { TechnicianStackParamList } from '../../navigation/technicianTypes';
+import { useAuth } from '../../components/auth/AuthContext';
 
 type TechnicianNavigationProp =
   NativeStackNavigationProp<TechnicianStackParamList>;
@@ -19,6 +20,9 @@ type TechnicianNavigationProp =
 export default function TechnicianDashboardScreen() {
   const navigation =
     useNavigation<TechnicianNavigationProp>();
+
+  const { logout } = useAuth();
+  const [showLogout, setShowLogout] = useState(false);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -47,8 +51,25 @@ export default function TechnicianDashboardScreen() {
               </View>
             </View>
 
-            <View style={styles.profileCircle}>
-              <Text style={styles.profileEmoji}>👷</Text>
+            <View style={styles.profileWrapper}>
+              <Pressable
+                style={styles.profileCircle}
+                onPress={() => setShowLogout((current) => !current)}
+              >
+                <Text style={styles.profileEmoji}>👷</Text>
+              </Pressable>
+
+              {showLogout && (
+                <Pressable
+                  style={styles.logoutButton}
+                  onPress={async () => {
+                    setShowLogout(false);
+                    await logout();
+                  }}
+                >
+                  <Text style={styles.logoutText}>Logout</Text>
+                </Pressable>
+              )}
             </View>
           </View>
 
@@ -319,6 +340,11 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
+  profileWrapper: {
+    position: 'relative',
+    alignItems: 'flex-end',
+  },
+
   profileCircle: {
     width: 62,
     height: 62,
@@ -326,6 +352,28 @@ const styles = StyleSheet.create({
     backgroundColor: '#27A9D0',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+
+  logoutButton: {
+    position: 'absolute',
+    top: 70,
+    right: 0,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 12,
+    elevation: 4,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    zIndex: 10,
+  },
+
+  logoutText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#243B53',
   },
 
   profileEmoji: {

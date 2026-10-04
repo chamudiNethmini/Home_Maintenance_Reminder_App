@@ -5,6 +5,7 @@ import LoginScreen from '../screens/auth/LoginScreen';
 
 import HomeownerNavigator from './HomeownerNavigator';
 import ProviderNavigator from './ProviderNavigator';
+import TechnicianNavigator from './TechnicianNavigator';
 
 import { useAuth } from '../components/auth/AuthContext';
 
@@ -12,23 +13,7 @@ import {
   ProviderModuleProvider,
 } from '../components/provider/ProviderContext';
 
-import {
-  Button,
-  Notice,
-  Page,
-} from '../components/provider/ProviderUI';
-
-import {
-  MutationState,
-} from '../components/provider/ProviderDataState';
-
-import {
-  useProviderMutation,
-} from '../utils/useProviderData';
-
-import type {
-  RootStackParamList,
-} from './rootTypes';
+import type { RootStackParamList } from './rootTypes';
 
 const Stack =
   createNativeStackNavigator<RootStackParamList>();
@@ -40,8 +25,6 @@ function ProviderFlow() {
     return null;
   }
 
-  // Preserve the existing shared request queue;
-  // identity is used for new records.
   return (
     <ProviderModuleProvider
       key={user.uid}
@@ -49,36 +32,6 @@ function ProviderFlow() {
     >
       <ProviderNavigator />
     </ProviderModuleProvider>
-  );
-}
-
-function TechnicianPending() {
-  const {
-    logout,
-  } = useAuth();
-
-  const mutation =
-    useProviderMutation();
-
-  return (
-    <Page title="Technician">
-      <Notice text="Technician module is not connected yet." />
-
-      <MutationState
-        {...mutation}
-      />
-
-      <Button
-        title="Log out"
-        disabled={mutation.pending}
-        onPress={() => {
-          void mutation.run(
-            logout,
-            '',
-          );
-        }}
-      />
-    </Page>
   );
 }
 
@@ -92,56 +45,34 @@ export default function RootNavigator() {
       }}
     >
       {!user ? (
-        // NOT LOGGED IN
-        <Stack.Group
-          navigationKey="signed-out"
-        >
+        <Stack.Group navigationKey="signed-out">
           <Stack.Screen
             name="RoleSelection"
-            component={
-              RoleSelectionScreen
-            }
+            component={RoleSelectionScreen}
           />
 
           <Stack.Screen
             name="Login"
-            component={
-              LoginScreen
-            }
+            component={LoginScreen}
           />
         </Stack.Group>
       ) : user.role === 'provider' ? (
-        // WARRANTY PROVIDER
         <Stack.Screen
-          navigationKey={
-            user.uid
-          }
+          navigationKey={user.uid}
           name="ProviderFlow"
-          component={
-            ProviderFlow
-          }
+          component={ProviderFlow}
         />
       ) : user.role === 'homeowner' ? (
-        // HOMEOWNER
         <Stack.Screen
-          navigationKey={
-            user.uid
-          }
+          navigationKey={user.uid}
           name="HomeownerDashboard"
-          component={
-            HomeownerNavigator
-          }
+          component={HomeownerNavigator}
         />
       ) : (
-        // TECHNICIAN
         <Stack.Screen
-          navigationKey={
-            user.uid
-          }
-          name="TechnicianPending"
-          component={
-            TechnicianPending
-          }
+          navigationKey={user.uid}
+          name="TechnicianDashboard"
+          component={TechnicianNavigator}
         />
       )}
     </Stack.Navigator>

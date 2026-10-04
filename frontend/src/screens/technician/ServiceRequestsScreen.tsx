@@ -16,7 +16,10 @@ type Props = NativeStackScreenProps<
   'ServiceRequests'
 >;
 
-type RequestStatus = 'Pending' | 'In Progress' | 'Completed';
+type RequestStatus =
+  | 'Pending'
+  | 'In Progress'
+  | 'Completed';
 
 type ServiceRequest = {
   id: string;
@@ -34,7 +37,7 @@ const requests: ServiceRequest[] = [
     customer: 'Kumar',
     problem: 'Not working',
     status: 'Pending',
-    icon: '◉',
+    icon: '🧺',
   },
   {
     id: 'SR-1002',
@@ -50,7 +53,7 @@ const requests: ServiceRequest[] = [
     customer: 'Fathima',
     problem: 'No power',
     status: 'Completed',
-    icon: '▱',
+    icon: '❄️',
   },
   {
     id: 'SR-1004',
@@ -58,7 +61,7 @@ const requests: ServiceRequest[] = [
     customer: 'Nisha',
     problem: 'Water leakage',
     status: 'Pending',
-    icon: '◉',
+    icon: '🧺',
   },
 ];
 
@@ -86,52 +89,53 @@ export default function ServiceRequestsScreen({
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
       >
         {/* Header */}
         <View style={styles.header}>
-          <View style={styles.brandRow}>
-            <Text style={styles.houseIcon}>🏠</Text>
-
-            <View>
-              <Text style={styles.brandName}>
-                <Text style={styles.homeText}>Home</Text>
-                <Text style={styles.careText}>Care</Text>
-              </Text>
-
-              <Text style={styles.tagline}>
-                Care for Every Home
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.technicianCircle}>
-            <Text style={styles.technicianEmoji}>👨‍🔧</Text>
-          </View>
-        </View>
-
-        {/* Page heading */}
-        <View style={styles.pageHeader}>
-          <Pressable
-            onPress={() => navigation.goBack()}
-            style={styles.backButton}
-          >
-            <Text style={styles.backArrow}>‹</Text>
-          </Pressable>
-
-          <View style={styles.titleContainer}>
-            <Text style={styles.title}>
-              Service Requests
+          <View>
+            <Text style={styles.logoText}>
+              HomeCare
             </Text>
 
-            <Text style={styles.subtitle}>
-              View and manage assigned service requests
+            <Text style={styles.tagline}>
+              Smart Home Maintenance
+            </Text>
+          </View>
+
+          <View style={styles.profileCircle}>
+            <Text style={styles.profileEmoji}>
+              👷
             </Text>
           </View>
         </View>
 
-        {/* Filter buttons */}
+        {/* Back Button */}
+        <Pressable
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.backArrow}>‹</Text>
+
+          <Text style={styles.backText}>
+            Back
+          </Text>
+        </Pressable>
+
+        {/* Page Title */}
+        <View style={styles.titleSection}>
+          <Text style={styles.pageTitle}>
+            Service Requests
+          </Text>
+
+          <Text style={styles.pageSubtitle}>
+            View and manage assigned service requests
+          </Text>
+        </View>
+
+        {/* Filters */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -167,22 +171,26 @@ export default function ServiceRequestsScreen({
           })}
         </ScrollView>
 
-        {/* Requests */}
+        {/* Service Requests */}
         <View style={styles.requestsContainer}>
           {filteredRequests.map((request) => (
             <Pressable
               key={request.id}
               style={styles.requestCard}
-              onPress={() => {
-                // Details screen will be connected next.
-              }}
+              onPress={() =>
+                navigation.navigate(
+                  'ApplianceInformation',
+                )
+              }
             >
-              <View style={styles.applianceIconBox}>
-                <Text style={styles.applianceIcon}>
+              {/* Appliance Icon */}
+              <View style={styles.applianceIcon}>
+                <Text style={styles.applianceEmoji}>
                   {request.icon}
                 </Text>
               </View>
 
+              {/* Request Information */}
               <View style={styles.requestInfo}>
                 <Text style={styles.requestId}>
                   {request.id}
@@ -201,6 +209,7 @@ export default function ServiceRequestsScreen({
                 </Text>
               </View>
 
+              {/* Status */}
               <View style={styles.rightSection}>
                 <View
                   style={[
@@ -234,216 +243,215 @@ export default function ServiceRequestsScreen({
 }
 
 const styles = StyleSheet.create({
+  /* Main Screen */
+
   safeArea: {
     flex: 1,
     backgroundColor: '#F4F8FA',
+    alignItems: 'center',
   },
 
-  scrollContent: {
-    paddingBottom: 40,
+  container: {
+    flex: 1,
+    width: '100%',
+    maxWidth: 550,
+    alignSelf: 'center',
+    backgroundColor: '#F4F8FA',
   },
+
+  contentContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 35,
+  },
+
+  /* Header */
 
   header: {
-    backgroundColor: '#FFFFFF',
-    minHeight: 135,
-    paddingHorizontal: 28,
-    paddingTop: 24,
-    paddingBottom: 22,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
+    height: 78,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
 
-  brandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  houseIcon: {
-    fontSize: 58,
-    marginRight: 12,
-  },
-
-  brandName: {
-    fontSize: 39,
+  logoText: {
+    fontSize: 22,
     fontWeight: '700',
-    letterSpacing: -1.2,
-  },
-
-  homeText: {
     color: '#103851',
-  },
-
-  careText: {
-    color: '#0EA5C6',
   },
 
   tagline: {
     marginTop: 2,
+    fontSize: 11,
     color: '#58717F',
-    fontSize: 16,
   },
 
-  technicianCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#0EA5C6',
-    alignItems: 'center',
+  profileCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#087F80',
     justifyContent: 'center',
-  },
-
-  technicianEmoji: {
-    fontSize: 31,
-  },
-
-  pageHeader: {
-    paddingTop: 28,
-    paddingHorizontal: 20,
     alignItems: 'center',
-    position: 'relative',
   },
+
+  profileEmoji: {
+    fontSize: 22,
+  },
+
+  /* Back Button */
 
   backButton: {
-    position: 'absolute',
-    left: 18,
-    top: 28,
-    width: 42,
-    height: 42,
-    justifyContent: 'center',
+    flexDirection: 'row',
     alignItems: 'center',
-    zIndex: 2,
+    marginTop: 10,
+    marginBottom: 18,
   },
 
   backArrow: {
+    fontSize: 30,
+    lineHeight: 30,
     color: '#103851',
-    fontSize: 48,
-    fontWeight: '300',
-    lineHeight: 42,
+    marginRight: 5,
   },
 
-  titleContainer: {
-    alignItems: 'center',
-    paddingHorizontal: 35,
-  },
-
-  title: {
-    color: '#16202B',
-    fontSize: 38,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-
-  subtitle: {
+  backText: {
+    fontSize: 15,
+    fontWeight: '600',
     color: '#58717F',
-    fontSize: 20,
-    marginTop: 8,
-    textAlign: 'center',
   },
+
+  /* Page Title */
+
+  titleSection: {
+    marginBottom: 18,
+  },
+
+  pageTitle: {
+    fontSize: 27,
+    fontWeight: '700',
+    color: '#103851',
+  },
+
+  pageSubtitle: {
+    marginTop: 6,
+    fontSize: 14,
+    color: '#58717F',
+  },
+
+  /* Filters */
 
   filterContainer: {
-    paddingHorizontal: 32,
-    paddingTop: 26,
-    paddingBottom: 25,
-    gap: 12,
+    paddingVertical: 4,
+    paddingBottom: 18,
+    gap: 8,
   },
 
   filterButton: {
-    minWidth: 125,
-    height: 58,
-    paddingHorizontal: 22,
-    borderRadius: 30,
+    minHeight: 40,
+    paddingHorizontal: 16,
+    borderRadius: 20,
     backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#DEE8ED',
     justifyContent: 'center',
     alignItems: 'center',
   },
 
   filterButtonActive: {
-    backgroundColor: '#0EA5C6',
+    backgroundColor: '#087F80',
+    borderColor: '#087F80',
   },
 
   filterText: {
-    color: '#687583',
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#58717F',
   },
 
   filterTextActive: {
     color: '#FFFFFF',
   },
 
+  /* Requests */
+
   requestsContainer: {
-    paddingHorizontal: 32,
-    gap: 18,
+    gap: 14,
   },
 
   requestCard: {
-    minHeight: 168,
+    minHeight: 128,
     backgroundColor: '#FFFFFF',
-    borderRadius: 26,
-    paddingHorizontal: 18,
-    paddingVertical: 20,
+    borderWidth: 1,
+    borderColor: '#DEE8ED',
+    borderRadius: 16,
+    padding: 14,
     flexDirection: 'row',
     alignItems: 'center',
   },
 
-  applianceIconBox: {
-    width: 82,
-    height: 100,
+  /* Appliance Icon */
+
+  applianceIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 14,
+    backgroundColor: '#F1F9F9',
+    borderWidth: 1,
+    borderColor: '#DEE8ED',
     justifyContent: 'center',
     alignItems: 'center',
   },
 
-  applianceIcon: {
-    color: '#0EA5C6',
-    fontSize: 54,
-    fontWeight: '300',
+  applianceEmoji: {
+    fontSize: 25,
   },
+
+  /* Request Information */
 
   requestInfo: {
     flex: 1,
-    paddingLeft: 8,
-    paddingRight: 8,
+    marginLeft: 12,
+    marginRight: 8,
   },
 
   requestId: {
-    color: '#687583',
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 8,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#58717F',
+    marginBottom: 4,
   },
 
   applianceName: {
-    color: '#17202B',
-    fontSize: 25,
+    fontSize: 16,
     fontWeight: '700',
+    color: '#103851',
     marginBottom: 4,
   },
 
   customerText: {
-    color: '#687583',
-    fontSize: 18,
-    marginBottom: 5,
+    fontSize: 12,
+    color: '#58717F',
+    marginBottom: 3,
   },
 
   problemText: {
-    color: '#687583',
-    fontSize: 18,
+    fontSize: 12,
+    color: '#58717F',
   },
+
+  /* Right Section */
 
   rightSection: {
     alignItems: 'flex-end',
     justifyContent: 'space-between',
-    minHeight: 105,
+    minHeight: 82,
   },
 
   statusBadge: {
-    minWidth: 132,
-    paddingHorizontal: 18,
-    height: 56,
-    borderRadius: 30,
+    minWidth: 86,
+    minHeight: 30,
+    paddingHorizontal: 9,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -453,23 +461,23 @@ const styles = StyleSheet.create({
   },
 
   progressBadge: {
-    backgroundColor: '#FFAC22',
+    backgroundColor: '#087F80',
   },
 
   completedBadge: {
-    backgroundColor: '#2FC45A',
+    backgroundColor: '#087F80',
   },
 
   statusText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 11,
     fontWeight: '700',
   },
 
   chevron: {
-    color: '#687583',
-    fontSize: 34,
+    color: '#58717F',
+    fontSize: 27,
     fontWeight: '300',
-    marginRight: 5,
+    marginRight: 3,
   },
 });

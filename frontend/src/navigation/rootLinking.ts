@@ -6,7 +6,7 @@ export function rootLinking(role?: UserRole): LinkingOptions<RootStackParamList>
   return { enabled: providerLinking.enabled, prefixes: [], config: { screens:
     role === 'provider' ? { ProviderFlow: { path: '', screens: providerLinking.config!.screens } }
     : role === 'homeowner' ? { HomeownerDashboard: 'homeowner-dashboard' }
-    : role === 'technician' ? { TechnicianPending: 'technician' }
+   : role === 'technician' ? { TechnicianDashboard: 'technician' }
     : { RoleSelection: { path: '', alias: ['provider-entry'] }, Login: 'login/:role' }
   } };
 }

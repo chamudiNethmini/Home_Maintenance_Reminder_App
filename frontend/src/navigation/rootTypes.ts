@@ -1,5 +1,6 @@
 import type { NavigatorScreenParams } from '@react-navigation/native';
 import type { ProviderStackParams } from './providerTypes';
+import type { TechnicianStackParamList } from './technicianTypes';
 
 export type UserRole =
   | 'homeowner'
@@ -14,7 +15,9 @@ export type RootStackParamList = {
   };
 
   HomeownerDashboard: undefined;
-  TechnicianPending: undefined;
+
+  TechnicianDashboard:
+    NavigatorScreenParams<TechnicianStackParamList>;
 
   ProviderFlow:
     NavigatorScreenParams<ProviderStackParams>;

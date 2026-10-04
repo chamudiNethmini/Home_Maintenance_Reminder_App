@@ -27,12 +27,10 @@ export default function TechnicianDashboardScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
-
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.logoArea}>
@@ -54,7 +52,9 @@ export default function TechnicianDashboardScreen() {
             <View style={styles.profileWrapper}>
               <Pressable
                 style={styles.profileCircle}
-                onPress={() => setShowLogout((current) => !current)}
+                onPress={() =>
+                  setShowLogout((current) => !current)
+                }
               >
                 <Text style={styles.profileEmoji}>👷</Text>
               </Pressable>
@@ -106,14 +106,13 @@ export default function TechnicianDashboardScreen() {
 
           {/* Statistics */}
           <View style={styles.statsContainer}>
-
             {/* Assigned Requests */}
             <View style={styles.statCard}>
               <View style={styles.statIconCircle}>
                 <Text style={styles.statEmoji}>🗓️</Text>
               </View>
 
-              <View>
+              <View style={styles.statTextArea}>
                 <Text
                   style={[
                     styles.statNumber,
@@ -135,7 +134,7 @@ export default function TechnicianDashboardScreen() {
                 <Text style={styles.statEmoji}>⏱️</Text>
               </View>
 
-              <View>
+              <View style={styles.statTextArea}>
                 <Text
                   style={[
                     styles.statNumber,
@@ -157,7 +156,7 @@ export default function TechnicianDashboardScreen() {
                 <Text style={styles.statEmoji}>✅</Text>
               </View>
 
-              <View>
+              <View style={styles.statTextArea}>
                 <Text
                   style={[
                     styles.statNumber,
@@ -179,7 +178,7 @@ export default function TechnicianDashboardScreen() {
                 <Text style={styles.statEmoji}>⚠️</Text>
               </View>
 
-              <View>
+              <View style={styles.statTextArea}>
                 <Text
                   style={[
                     styles.statNumber,
@@ -194,7 +193,6 @@ export default function TechnicianDashboardScreen() {
                 </Text>
               </View>
             </View>
-
           </View>
 
           {/* Service Requests Button */}
@@ -218,16 +216,12 @@ export default function TechnicianDashboardScreen() {
               </Text>
             </View>
 
-            <Text style={styles.arrow}>
-              ›
-            </Text>
+            <Text style={styles.arrow}>›</Text>
           </Pressable>
-
         </ScrollView>
 
         {/* Bottom Navigation */}
         <View style={styles.bottomNavigation}>
-
           {/* Home */}
           <View
             style={[
@@ -236,6 +230,7 @@ export default function TechnicianDashboardScreen() {
             ]}
           >
             <Text style={styles.navIcon}>⌂</Text>
+
             <Text style={styles.activeNavText}>
               Home
             </Text>
@@ -267,26 +262,27 @@ export default function TechnicianDashboardScreen() {
               History
             </Text>
           </Pressable>
-
         </View>
-
       </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  /* Main */
+
   safeArea: {
     flex: 1,
-    backgroundColor: '#F4F6F7',
+    backgroundColor: '#F4F8FA',
+    alignItems: 'center',
   },
 
   container: {
     flex: 1,
-    backgroundColor: '#F2FFFD',
-    maxWidth: 500,
     width: '100%',
+    maxWidth: 550,
     alignSelf: 'center',
+    backgroundColor: '#F4F8FA',
   },
 
   scrollContent: {
@@ -297,15 +293,14 @@ const styles = StyleSheet.create({
 
   header: {
     backgroundColor: '#FFFFFF',
-    minHeight: 155,
-    paddingHorizontal: 25,
-    paddingTop: 20,
-    paddingBottom: 18,
+    minHeight: 110,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
   },
 
   logoArea: {
@@ -314,29 +309,30 @@ const styles = StyleSheet.create({
   },
 
   logoIcon: {
-    width: 95,
-    height: 80,
+    width: 52,
+    height: 52,
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 8,
   },
 
   logoEmoji: {
-    fontSize: 62,
+    fontSize: 34,
   },
 
   logoText: {
-    fontSize: 34,
+    fontSize: 23,
     fontWeight: '700',
-    color: '#243B53',
+    color: '#103851',
   },
 
   logoBlue: {
-    color: '#25A9CD',
+    color: '#0EA5C6',
   },
 
   tagline: {
-    fontSize: 17,
-    color: '#6B7280',
+    fontSize: 11,
+    color: '#58717F',
     marginTop: 2,
   },
 
@@ -346,97 +342,101 @@ const styles = StyleSheet.create({
   },
 
   profileCircle: {
-    width: 62,
-    height: 62,
-    borderRadius: 31,
-    backgroundColor: '#27A9D0',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#087F80',
     justifyContent: 'center',
     alignItems: 'center',
   },
 
+  profileEmoji: {
+    fontSize: 23,
+  },
+
   logoutButton: {
     position: 'absolute',
-    top: 70,
+    top: 52,
     right: 0,
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#DEE8ED',
     elevation: 4,
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.12,
     shadowRadius: 4,
     zIndex: 10,
   },
 
   logoutText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
-    color: '#243B53',
-  },
-
-  profileEmoji: {
-    fontSize: 32,
+    color: '#103851',
   },
 
   /* Greeting */
 
   greetingSection: {
-    paddingHorizontal: 35,
-    paddingTop: 35,
-    paddingBottom: 22,
+    paddingHorizontal: 20,
+    paddingTop: 25,
+    paddingBottom: 18,
   },
 
   greeting: {
-    fontSize: 32,
+    fontSize: 27,
     fontWeight: '700',
-    color: '#17202A',
+    color: '#103851',
   },
 
   subtitle: {
-    fontSize: 21,
-    color: '#687586',
-    marginTop: 7,
+    fontSize: 14,
+    color: '#58717F',
+    marginTop: 5,
   },
 
   /* Banner */
 
   banner: {
-    marginHorizontal: 0,
-    height: 305,
-    backgroundColor: '#D8F8FA',
+    height: 190,
+    backgroundColor: '#F1F9F9',
     flexDirection: 'row',
     overflow: 'hidden',
   },
 
   bannerTextArea: {
     flex: 1,
-    paddingLeft: 35,
-    paddingTop: 42,
+    paddingLeft: 20,
+    paddingTop: 25,
     zIndex: 2,
   },
 
   bannerTitle: {
-    fontSize: 27,
-    lineHeight: 33,
+    fontSize: 22,
+    lineHeight: 27,
     fontWeight: '800',
-    color: '#10194D',
+    color: '#103851',
   },
 
   bannerSubtitle: {
-    fontSize: 20,
-    lineHeight: 28,
-    color: '#61748A',
-    marginTop: 18,
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#58717F',
+    marginTop: 10,
   },
 
   bannerLine: {
-    width: 70,
-    height: 9,
-    borderRadius: 5,
-    backgroundColor: '#25A9CD',
-    marginTop: 22,
+    width: 50,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#0EA5C6',
+    marginTop: 14,
   },
 
   bannerIllustration: {
@@ -446,174 +446,182 @@ const styles = StyleSheet.create({
   },
 
   technicianEmoji: {
-    fontSize: 105,
+    fontSize: 75,
   },
 
   houseEmoji: {
-    fontSize: 70,
+    fontSize: 48,
     position: 'absolute',
-    right: 5,
-    top: 30,
+    right: 8,
+    top: 20,
     opacity: 0.45,
   },
 
   /* Statistics */
 
   statsContainer: {
-    paddingHorizontal: 28,
-    paddingTop: 55,
+    paddingHorizontal: 20,
+    paddingTop: 25,
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: 20,
+    gap: 12,
   },
 
   statCard: {
-    width: '47%',
-    minHeight: 125,
+    width: '48%',
+    minHeight: 92,
     backgroundColor: '#FFFFFF',
-    borderRadius: 23,
-    paddingHorizontal: 18,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#DEE8ED',
+    paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 15,
+    gap: 10,
   },
 
   statIconCircle: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: '#ECF9FC',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#F1F9F9',
     justifyContent: 'center',
     alignItems: 'center',
   },
 
   statEmoji: {
-    fontSize: 31,
+    fontSize: 22,
+  },
+
+  statTextArea: {
+    flex: 1,
   },
 
   statNumber: {
-    fontSize: 39,
+    fontSize: 27,
     fontWeight: '700',
   },
 
   blueNumber: {
-    color: '#25A9CD',
+    color: '#0EA5C6',
   },
 
   orangeNumber: {
-    color: '#F6A623',
+    color: '#0EA5C6',
   },
 
   greenNumber: {
-    color: '#2DBB59',
+    color: '#087F80',
   },
 
   redNumber: {
-    color: '#FF6262',
+    color: '#087F80',
   },
 
   statLabel: {
-    fontSize: 17,
-    color: '#687586',
-    marginTop: -3,
+    fontSize: 11,
+    color: '#58717F',
+    marginTop: -2,
   },
 
   /* Service Request Button */
 
   requestButton: {
-    marginHorizontal: 30,
-    marginTop: 300,
-    marginBottom: 40,
-    minHeight: 105,
-    borderRadius: 25,
-    backgroundColor: '#28A8CD',
+    marginHorizontal: 20,
+    marginTop: 30,
+    marginBottom: 30,
+    minHeight: 82,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#DEE8ED',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 18,
+    paddingHorizontal: 14,
   },
 
   requestIconCircle: {
-    width: 65,
-    height: 65,
-    borderRadius: 33,
-    backgroundColor: '#EAF8FC',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#F1F9F9',
     justifyContent: 'center',
     alignItems: 'center',
   },
 
   requestIcon: {
-    fontSize: 34,
+    fontSize: 25,
   },
 
   requestTextArea: {
     flex: 1,
-    marginLeft: 18,
+    marginLeft: 12,
   },
 
   requestTitle: {
-    fontSize: 21,
+    fontSize: 16,
     fontWeight: '700',
-    color: '#071827',
+    color: '#103851',
   },
 
   requestSubtitle: {
-    fontSize: 16,
-    color: '#607487',
-    marginTop: 5,
+    fontSize: 12,
+    color: '#58717F',
+    marginTop: 3,
   },
 
   arrow: {
-    fontSize: 40,
-    color: '#071827',
+    fontSize: 30,
+    color: '#087F80',
     fontWeight: '400',
-    marginRight: 8,
+    marginRight: 5,
   },
 
   /* Bottom Navigation */
 
   bottomNavigation: {
-    height: 105,
+    height: 78,
     backgroundColor: '#FFFFFF',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    borderTopLeftRadius: 25,
-    borderTopRightRadius: 25,
+    borderTopWidth: 1,
+    borderTopColor: '#DEE8ED',
   },
 
   navItem: {
-    width: 110,
-    height: 85,
+    width: 90,
+    height: 58,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 25,
+    borderRadius: 14,
   },
 
   activeNavItem: {
-    backgroundColor: '#E1F6FC',
+    backgroundColor: '#F1F9F9',
   },
 
   navIcon: {
-    fontSize: 35,
-    color: '#25A9CD',
+    fontSize: 25,
+    color: '#0EA5C6',
   },
 
   navIconInactive: {
-    fontSize: 31,
-    color: '#777777',
+    fontSize: 22,
+    color: '#58717F',
   },
 
   activeNavText: {
-    color: '#25A9CD',
-    fontSize: 17,
+    color: '#0EA5C6',
+    fontSize: 12,
     fontWeight: '600',
-    marginTop: 3,
+    marginTop: 2,
   },
 
   navText: {
-    color: '#6B7280',
-    fontSize: 17,
-    marginTop: 3,
+    color: '#58717F',
+    fontSize: 12,
+    marginTop: 2,
   },
 });

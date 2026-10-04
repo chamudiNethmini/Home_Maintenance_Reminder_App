@@ -43,6 +43,7 @@ import {
   deleteMaintenanceReminder,
   getReminderByScheduleId,
   saveMaintenanceReminder,
+  testMaintenanceNotification,
 } from '../../services/reminderService';
 
 const COLORS = {
@@ -94,9 +95,10 @@ export default function ReminderSettingsScreen({
   const [
     schedules,
     setSchedules,
-  ] = useState<
-    MaintenanceSchedule[]
-  >([]);
+  ] =
+    useState<MaintenanceSchedule[]>(
+      [],
+    );
 
   const [
     selectedSchedule,
@@ -140,59 +142,84 @@ export default function ReminderSettingsScreen({
   ] = useState(false);
 
   const [
+    testingNotification,
+    setTestingNotification,
+  ] = useState(false);
+
+  const [
     error,
     setError,
   ] = useState('');
 
+  /* ===========================
+     LOAD REMINDER
+  =========================== */
+
   const loadReminderForSchedule =
     async (
-      schedule: MaintenanceSchedule,
+      schedule:
+        MaintenanceSchedule,
     ) => {
-      setSelectedSchedule(
-        schedule,
-      );
-
-      setError('');
-
-      const reminder =
-        await getReminderByScheduleId(
-          schedule.id,
+      try {
+        setSelectedSchedule(
+          schedule,
         );
 
-      if (reminder) {
-        setExistingReminder(
-          true,
-        );
+        setError('');
 
-        setRemindBeforeDays(
-          reminder.remindBeforeDays,
-        );
+        const reminder =
+          await getReminderByScheduleId(
+            schedule.id,
+          );
 
-        setReminderTime(
-          reminder.reminderTime,
-        );
+        if (reminder) {
+          setExistingReminder(
+            true,
+          );
 
-        setNotificationMethod(
-          reminder.notificationMethod,
-        );
-      } else {
-        setExistingReminder(
-          false,
-        );
+          setRemindBeforeDays(
+            reminder.remindBeforeDays,
+          );
 
-        setRemindBeforeDays(
-          1,
-        );
+          setReminderTime(
+            reminder.reminderTime,
+          );
 
-        setReminderTime(
-          '09:00',
-        );
+          setNotificationMethod(
+            reminder.notificationMethod,
+          );
+        } else {
+          setExistingReminder(
+            false,
+          );
 
-        setNotificationMethod(
-          'In-App',
+          setRemindBeforeDays(
+            1,
+          );
+
+          setReminderTime(
+            '09:00',
+          );
+
+          setNotificationMethod(
+            'In-App',
+          );
+        }
+      } catch (
+        reminderError
+      ) {
+        setError(
+          reminderError instanceof
+            Error
+            ? reminderError.message
+            : 'Unable to load reminder.',
         );
       }
     };
+
+  /* ===========================
+     LOAD MAINTENANCE
+  =========================== */
 
   useEffect(() => {
     const loadData =
@@ -201,6 +228,8 @@ export default function ReminderSettingsScreen({
           setLoading(
             true,
           );
+
+          setError('');
 
           const maintenance =
             await getMaintenanceSchedules();
@@ -217,8 +246,13 @@ export default function ReminderSettingsScreen({
           );
 
           if (
-            upcoming.length === 0
+            upcoming.length ===
+            0
           ) {
+            setSelectedSchedule(
+              null,
+            );
+
             return;
           }
 
@@ -259,6 +293,10 @@ export default function ReminderSettingsScreen({
       ?.scheduleId,
   ]);
 
+  /* ===========================
+     TIME VALIDATION
+  =========================== */
+
   const validTime =
     (
       value: string,
@@ -267,6 +305,60 @@ export default function ReminderSettingsScreen({
         value,
       );
     };
+
+  /* ===========================
+     TEST NOTIFICATION
+  =========================== */
+
+  const handleTestNotification =
+    async () => {
+      /*
+       * Expo Web cannot test
+       * native phone notifications.
+       */
+      if (
+        Platform.OS ===
+        'web'
+      ) {
+        window.alert(
+          'Please test notifications on your Android or iOS phone.',
+        );
+
+        return;
+      }
+
+      try {
+        setTestingNotification(
+          true,
+        );
+
+        setError('');
+
+        await testMaintenanceNotification();
+
+        Alert.alert(
+          'Test Scheduled',
+          'A test notification should appear in about 10 seconds.',
+        );
+      } catch (
+        testError
+      ) {
+        setError(
+          testError instanceof
+            Error
+            ? testError.message
+            : 'Unable to test notification.',
+        );
+      } finally {
+        setTestingNotification(
+          false,
+        );
+      }
+    };
+
+  /* ===========================
+     SAVE REMINDER
+  =========================== */
 
   const handleSave =
     async () => {
@@ -297,9 +389,7 @@ export default function ReminderSettingsScreen({
           true,
         );
 
-        setError(
-          '',
-        );
+        setError('');
 
         await saveMaintenanceReminder(
           {
@@ -326,6 +416,10 @@ export default function ReminderSettingsScreen({
           },
         );
 
+        setExistingReminder(
+          true,
+        );
+
         if (
           Platform.OS ===
           'web'
@@ -343,7 +437,10 @@ export default function ReminderSettingsScreen({
 
         Alert.alert(
           'Reminder Saved',
-          'Your maintenance reminder has been saved.',
+          notificationMethod ===
+            'Push Notification'
+            ? 'Your reminder was saved and the phone notification was scheduled.'
+            : 'Your maintenance reminder has been saved.',
           [
             {
               text: 'OK',
@@ -371,6 +468,10 @@ export default function ReminderSettingsScreen({
       }
     };
 
+  /* ===========================
+     DELETE REMINDER
+  =========================== */
+
   const handleDelete =
     () => {
       if (
@@ -382,6 +483,8 @@ export default function ReminderSettingsScreen({
       const performDelete =
         async () => {
           try {
+            setError('');
+
             await deleteMaintenanceReminder(
               selectedSchedule.id,
             );
@@ -436,9 +539,7 @@ export default function ReminderSettingsScreen({
             'Delete this reminder?',
           );
 
-        if (
-          confirmed
-        ) {
+        if (confirmed) {
           void performDelete();
         }
 
@@ -450,12 +551,17 @@ export default function ReminderSettingsScreen({
         'Are you sure you want to delete this reminder?',
         [
           {
-            text: 'Cancel',
-            style: 'cancel',
+            text:
+              'Cancel',
+
+            style:
+              'cancel',
           },
 
           {
-            text: 'Delete',
+            text:
+              'Delete',
+
             style:
               'destructive',
 
@@ -476,6 +582,7 @@ export default function ReminderSettingsScreen({
         showsVerticalScrollIndicator={
           false
         }
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={[
           styles.content,
 
@@ -532,6 +639,7 @@ export default function ReminderSettingsScreen({
           </View>
         </View>
 
+        {/* Loading */}
         {loading ? (
           <View
             style={
@@ -555,6 +663,7 @@ export default function ReminderSettingsScreen({
           </View>
         ) : schedules.length ===
           0 ? (
+          /* No Maintenance */
           <View
             style={
               styles.stateCard
@@ -582,7 +691,8 @@ export default function ReminderSettingsScreen({
               }
             >
               Schedule maintenance
-              before creating a reminder.
+              before creating a
+              reminder.
             </Text>
 
             <Pressable
@@ -607,7 +717,10 @@ export default function ReminderSettingsScreen({
           </View>
         ) : (
           <>
-            {/* Schedule */}
+            {/* =====================
+                MAINTENANCE
+            ===================== */}
+
             <Text
               style={
                 styles.sectionTitle
@@ -697,9 +810,7 @@ export default function ReminderSettingsScreen({
                             ? 'checkmark-circle'
                             : 'ellipse-outline'
                         }
-                        size={
-                          22
-                        }
+                        size={22}
                         color={
                           selected
                             ? COLORS.teal
@@ -712,7 +823,10 @@ export default function ReminderSettingsScreen({
               )}
             </View>
 
-            {/* When */}
+            {/* =====================
+                REMIND BEFORE
+            ===================== */}
+
             <Text
               style={
                 styles.sectionTitle
@@ -741,11 +855,13 @@ export default function ReminderSettingsScreen({
                         option.days &&
                         styles.selectedOption,
                     ]}
-                    onPress={() =>
+                    onPress={() => {
                       setRemindBeforeDays(
                         option.days,
-                      )
-                    }
+                      );
+
+                      setError('');
+                    }}
                   >
                     <Text
                       style={[
@@ -765,7 +881,10 @@ export default function ReminderSettingsScreen({
               )}
             </View>
 
-            {/* Time */}
+            {/* =====================
+                TIME
+            ===================== */}
+
             <Text
               style={
                 styles.sectionTitle
@@ -791,9 +910,15 @@ export default function ReminderSettingsScreen({
                 value={
                   reminderTime
                 }
-                onChangeText={
-                  setReminderTime
-                }
+                onChangeText={(
+                  value,
+                ) => {
+                  setReminderTime(
+                    value,
+                  );
+
+                  setError('');
+                }}
                 placeholder="09:00"
                 placeholderTextColor={
                   COLORS.secondary
@@ -810,10 +935,14 @@ export default function ReminderSettingsScreen({
               }
             >
               Use 24-hour format,
-              for example 09:00 or 18:30.
+              for example 09:00 or
+              18:30.
             </Text>
 
-            {/* Notification Method */}
+            {/* =====================
+                NOTIFICATION METHOD
+            ===================== */}
+
             <Text
               style={
                 styles.sectionTitle
@@ -846,11 +975,13 @@ export default function ReminderSettingsScreen({
                         selected &&
                           styles.selectedMethod,
                       ]}
-                      onPress={() =>
+                      onPress={() => {
                         setNotificationMethod(
                           method,
-                        )
-                      }
+                        );
+
+                        setError('');
+                      }}
                     >
                       <Ionicons
                         name={
@@ -862,9 +993,7 @@ export default function ReminderSettingsScreen({
                               ? 'phone-portrait-outline'
                               : 'notifications-outline'
                         }
-                        size={
-                          22
-                        }
+                        size={22}
                         color={
                           selected
                             ? COLORS.teal
@@ -884,11 +1013,92 @@ export default function ReminderSettingsScreen({
                           method
                         }
                       </Text>
+
+                      {selected ? (
+                        <Ionicons
+                          name="checkmark-circle"
+                          size={20}
+                          color={
+                            COLORS.teal
+                          }
+                          style={
+                            styles.methodCheck
+                          }
+                        />
+                      ) : null}
                     </Pressable>
                   );
                 },
               )}
             </View>
+
+            {/* =====================
+                TEST NOTIFICATION
+            ===================== */}
+
+            {__DEV__ &&
+              notificationMethod ===
+                'Push Notification' && (
+                <>
+                  <Pressable
+                    disabled={
+                      testingNotification
+                    }
+                    style={[
+                      styles.testNotificationButton,
+
+                      testingNotification && {
+                        opacity:
+                          0.65,
+                      },
+                    ]}
+                    onPress={() =>
+                      void handleTestNotification()
+                    }
+                  >
+                    {testingNotification ? (
+                      <ActivityIndicator
+                        color={
+                          COLORS.teal
+                        }
+                      />
+                    ) : (
+                      <>
+                        <Ionicons
+                          name="notifications-outline"
+                          size={20}
+                          color={
+                            COLORS.teal
+                          }
+                        />
+
+                        <Text
+                          style={
+                            styles.testNotificationText
+                          }
+                        >
+                          Test Notification
+                        </Text>
+                      </>
+                    )}
+                  </Pressable>
+
+                  <Text
+                    style={
+                      styles.testHelperText
+                    }
+                  >
+                    Sends a test
+                    notification in about
+                    10 seconds. Use this
+                    only for testing.
+                  </Text>
+                </>
+              )}
+
+            {/* =====================
+                ERROR
+            ===================== */}
 
             {error ? (
               <View
@@ -913,6 +1123,10 @@ export default function ReminderSettingsScreen({
                 </Text>
               </View>
             ) : null}
+
+            {/* =====================
+                SAVE / UPDATE
+            ===================== */}
 
             <Pressable
               disabled={
@@ -959,6 +1173,10 @@ export default function ReminderSettingsScreen({
               )}
             </Pressable>
 
+            {/* =====================
+                DELETE
+            ===================== */}
+
             {existingReminder ? (
               <Pressable
                 style={
@@ -992,151 +1210,232 @@ export default function ReminderSettingsScreen({
   );
 }
 
+/* ===========================
+   STYLES
+=========================== */
+
 const styles =
   StyleSheet.create({
     container: {
       flex: 1,
+
       backgroundColor:
         COLORS.background,
     },
 
     content: {
-      width: '100%',
-      maxWidth: 500,
-      alignSelf: 'center',
+      width:
+        '100%',
+
+      maxWidth:
+        500,
+
+      alignSelf:
+        'center',
+
       paddingHorizontal:
         20,
     },
 
+    /* Header */
+
     header: {
       flexDirection:
         'row',
+
       alignItems:
         'center',
+
       gap: 14,
+
       marginBottom:
         23,
     },
 
     backButton: {
       width: 44,
+
       height: 44,
+
       borderRadius:
         14,
+
       backgroundColor:
         COLORS.white,
-      borderWidth: 1,
+
+      borderWidth:
+        1,
+
       borderColor:
         COLORS.border,
+
       alignItems:
         'center',
+
       justifyContent:
         'center',
     },
 
     title: {
       fontSize: 23,
+
       fontWeight:
         '800',
+
       color:
         COLORS.heading,
     },
 
     subtitle: {
-      marginTop: 3,
-      fontSize: 13,
+      marginTop:
+        3,
+
+      fontSize:
+        13,
+
       color:
         COLORS.secondary,
     },
 
+    /* Sections */
+
     sectionTitle: {
-      marginTop: 22,
+      marginTop:
+        22,
+
       marginBottom:
         10,
-      fontSize: 15,
+
+      fontSize:
+        15,
+
       fontWeight:
         '800',
+
       color:
         COLORS.heading,
     },
 
+    /* Schedule */
+
     scheduleList: {
-      gap: 9,
+      gap:
+        9,
     },
 
     scheduleCard: {
-      minHeight: 68,
+      minHeight:
+        68,
+
       flexDirection:
         'row',
+
       alignItems:
         'center',
+
       backgroundColor:
         COLORS.white,
-      borderWidth: 1,
+
+      borderWidth:
+        1,
+
       borderColor:
         COLORS.border,
+
       borderRadius:
         14,
-      padding: 11,
+
+      padding:
+        11,
     },
 
     selectedSchedule: {
       borderColor:
         COLORS.teal,
+
       backgroundColor:
         COLORS.preview,
     },
 
     scheduleIcon: {
-      width: 43,
-      height: 43,
+      width:
+        43,
+
+      height:
+        43,
+
       borderRadius:
         12,
+
       backgroundColor:
         COLORS.preview,
+
       alignItems:
         'center',
+
       justifyContent:
         'center',
     },
 
     scheduleInfo: {
-      flex: 1,
-      marginLeft: 11,
+      flex:
+        1,
+
+      marginLeft:
+        11,
     },
 
     applianceName: {
-      fontSize: 14,
+      fontSize:
+        14,
+
       fontWeight:
         '700',
+
       color:
         COLORS.heading,
     },
 
     scheduleMeta: {
-      marginTop: 4,
-      fontSize: 11,
+      marginTop:
+        4,
+
+      fontSize:
+        11,
+
       color:
         COLORS.secondary,
     },
 
+    /* Reminder options */
+
     optionContainer: {
       flexDirection:
         'row',
-      flexWrap: 'wrap',
-      gap: 8,
+
+      flexWrap:
+        'wrap',
+
+      gap:
+        8,
     },
 
     optionButton: {
       paddingHorizontal:
         12,
+
       paddingVertical:
         9,
+
       borderRadius:
         10,
+
       backgroundColor:
         COLORS.white,
-      borderWidth: 1,
+
+      borderWidth:
+        1,
+
       borderColor:
         COLORS.border,
     },
@@ -1144,6 +1443,7 @@ const styles =
     selectedOption: {
       borderColor:
         COLORS.teal,
+
       backgroundColor:
         COLORS.preview,
     },
@@ -1151,7 +1451,10 @@ const styles =
     optionText: {
       color:
         COLORS.secondary,
-      fontSize: 11,
+
+      fontSize:
+        11,
+
       fontWeight:
         '600',
     },
@@ -1159,60 +1462,96 @@ const styles =
     selectedOptionText: {
       color:
         COLORS.teal,
+
       fontWeight:
         '700',
     },
 
+    /* Time */
+
     timeInput: {
-      minHeight: 52,
+      minHeight:
+        52,
+
       backgroundColor:
         COLORS.white,
-      borderWidth: 1,
+
+      borderWidth:
+        1,
+
       borderColor:
         COLORS.illustrationLine,
+
       borderRadius:
         12,
+
       paddingHorizontal:
         13,
+
       flexDirection:
         'row',
+
       alignItems:
         'center',
-      gap: 9,
+
+      gap:
+        9,
     },
 
     input: {
-      flex: 1,
-      fontSize: 14,
+      flex:
+        1,
+
+      fontSize:
+        14,
+
       color:
         COLORS.heading,
     },
 
     helperText: {
-      marginTop: 6,
-      fontSize: 10,
+      marginTop:
+        6,
+
+      fontSize:
+        10,
+
       color:
         COLORS.secondary,
     },
 
+    /* Method */
+
     methodContainer: {
-      gap: 8,
+      gap:
+        8,
     },
 
     methodCard: {
-      minHeight: 53,
+      minHeight:
+        53,
+
       flexDirection:
         'row',
+
       alignItems:
         'center',
-      gap: 11,
+
+      gap:
+        11,
+
       paddingHorizontal:
         14,
+
       backgroundColor:
         COLORS.white,
-      borderWidth: 1,
+
+      borderWidth:
+        1,
+
       borderColor:
         COLORS.border,
+
       borderRadius:
         13,
     },
@@ -1220,6 +1559,7 @@ const styles =
     selectedMethod: {
       borderColor:
         COLORS.teal,
+
       backgroundColor:
         COLORS.preview,
     },
@@ -1227,7 +1567,10 @@ const styles =
     methodText: {
       color:
         COLORS.secondary,
-      fontSize: 13,
+
+      fontSize:
+        13,
+
       fontWeight:
         '600',
     },
@@ -1235,104 +1578,239 @@ const styles =
     selectedMethodText: {
       color:
         COLORS.teal,
+
       fontWeight:
         '700',
     },
 
-    errorBox: {
-      marginTop: 18,
-      padding: 11,
+    methodCheck: {
+      marginLeft:
+        'auto',
+    },
+
+    /* Test Notification */
+
+    testNotificationButton: {
+      minHeight:
+        50,
+
+      marginTop:
+        12,
+
+      borderRadius:
+        13,
+
+      borderWidth:
+        1,
+
+      borderColor:
+        COLORS.teal,
+
+      backgroundColor:
+        COLORS.preview,
+
       flexDirection:
         'row',
-      gap: 8,
+
+      alignItems:
+        'center',
+
+      justifyContent:
+        'center',
+
+      gap:
+        8,
+    },
+
+    testNotificationText: {
+      color:
+        COLORS.teal,
+
+      fontSize:
+        13,
+
+      fontWeight:
+        '700',
+    },
+
+    testHelperText: {
+      marginTop:
+        6,
+
+      fontSize:
+        10,
+
+      lineHeight:
+        15,
+
+      color:
+        COLORS.secondary,
+
+      textAlign:
+        'center',
+    },
+
+    /* Error */
+
+    errorBox: {
+      marginTop:
+        18,
+
+      padding:
+        11,
+
+      flexDirection:
+        'row',
+
+      gap:
+        8,
+
       backgroundColor:
         COLORS.dangerBackground,
-      borderWidth: 1,
+
+      borderWidth:
+        1,
+
       borderColor:
         '#F1D3D7',
+
       borderRadius:
         11,
     },
 
     errorText: {
-      flex: 1,
+      flex:
+        1,
+
       color:
         COLORS.danger,
-      fontSize: 12,
+
+      fontSize:
+        12,
     },
 
+    /* Save */
+
     saveButton: {
-      minHeight: 54,
-      marginTop: 23,
+      minHeight:
+        54,
+
+      marginTop:
+        23,
+
       borderRadius:
         14,
+
       backgroundColor:
         COLORS.teal,
+
       flexDirection:
         'row',
+
       alignItems:
         'center',
+
       justifyContent:
         'center',
-      gap: 8,
+
+      gap:
+        8,
     },
 
     saveText: {
       color:
         COLORS.white,
-      fontSize: 14,
+
+      fontSize:
+        14,
+
       fontWeight:
         '700',
     },
 
+    /* Delete */
+
     deleteButton: {
-      minHeight: 50,
-      marginTop: 10,
+      minHeight:
+        50,
+
+      marginTop:
+        10,
+
       borderRadius:
         13,
+
       backgroundColor:
         COLORS.dangerBackground,
-      borderWidth: 1,
+
+      borderWidth:
+        1,
+
       borderColor:
         '#F1D3D7',
+
       flexDirection:
         'row',
+
       justifyContent:
         'center',
+
       alignItems:
         'center',
-      gap: 7,
+
+      gap:
+        7,
     },
 
     deleteText: {
       color:
         COLORS.danger,
-      fontSize: 13,
+
+      fontSize:
+        13,
+
       fontWeight:
         '700',
     },
 
+    /* Empty / loading */
+
     stateCard: {
-      minHeight: 250,
+      minHeight:
+        250,
+
       backgroundColor:
         COLORS.white,
-      borderWidth: 1,
+
+      borderWidth:
+        1,
+
       borderColor:
         COLORS.border,
+
       borderRadius:
         18,
-      padding: 25,
+
+      padding:
+        25,
+
       alignItems:
         'center',
+
       justifyContent:
         'center',
-      gap: 10,
+
+      gap:
+        10,
     },
 
     stateText: {
       color:
         COLORS.secondary,
-      fontSize: 12,
+
+      fontSize:
+        12,
+
       textAlign:
         'center',
     },
@@ -1340,19 +1818,27 @@ const styles =
     emptyTitle: {
       color:
         COLORS.heading,
-      fontSize: 17,
+
+      fontSize:
+        17,
+
       fontWeight:
         '800',
     },
 
     primaryButton: {
-      marginTop: 8,
+      marginTop:
+        8,
+
       paddingHorizontal:
         16,
+
       paddingVertical:
         10,
+
       borderRadius:
         10,
+
       backgroundColor:
         COLORS.teal,
     },
@@ -1360,8 +1846,11 @@ const styles =
     primaryButtonText: {
       color:
         COLORS.white,
+
       fontWeight:
         '700',
-      fontSize: 12,
+
+      fontSize:
+        12,
     },
   });

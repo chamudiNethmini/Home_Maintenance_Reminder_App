@@ -1,35 +1,57 @@
 import React from 'react';
 import {
   SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
   View,
+  Text,
+  StyleSheet,
+  ScrollView,
   Pressable,
 } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+
+import {
+  useNavigation,
+  NavigationProp,
+  useRoute,
+} from '@react-navigation/native';
+
+import type { RouteProp } from '@react-navigation/native';
 
 import type { TechnicianStackParamList } from '../../navigation/technicianTypes';
 
-type Props = NativeStackScreenProps<
-  TechnicianStackParamList,
-  'ApplianceInformation'
->;
+type Navigation =
+  NavigationProp<TechnicianStackParamList>;
 
-export default function ApplianceInformationScreen({
-  navigation,
-}: Props) {
+type ApplianceInformationRouteProp =
+  RouteProp<
+    TechnicianStackParamList,
+    'ApplianceInformation'
+  >;
+
+export default function ApplianceInformationScreen() {
+  const navigation =
+    useNavigation<Navigation>();
+
+  const route =
+    useRoute<ApplianceInformationRouteProp>();
+
+  const { serviceRequestId } =
+    route.params;
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.contentContainer}
+        contentContainerStyle={
+          styles.contentContainer
+        }
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.logoText}>HomeCare</Text>
+            <Text style={styles.logoText}>
+              HomeCare
+            </Text>
 
             <Text style={styles.tagline}>
               Smart Home Maintenance
@@ -37,17 +59,26 @@ export default function ApplianceInformationScreen({
           </View>
 
           <View style={styles.profileCircle}>
-            <Text style={styles.profileEmoji}>👷</Text>
+            <Text style={styles.profileEmoji}>
+              👷
+            </Text>
           </View>
         </View>
 
         {/* Back Button */}
         <Pressable
           style={styles.backButton}
-          onPress={() => navigation.goBack()}
+          onPress={() =>
+            navigation.goBack()
+          }
         >
-          <Text style={styles.backArrow}>‹</Text>
-          <Text style={styles.backText}>Back</Text>
+          <Text style={styles.backArrow}>
+            ‹
+          </Text>
+
+          <Text style={styles.backText}>
+            Back
+          </Text>
         </Pressable>
 
         {/* Page Title */}
@@ -57,7 +88,7 @@ export default function ApplianceInformationScreen({
           </Text>
 
           <Text style={styles.pageSubtitle}>
-            View appliance and customer details
+            View appliance and service request details
           </Text>
         </View>
 
@@ -67,40 +98,32 @@ export default function ApplianceInformationScreen({
             Appliance Information
           </Text>
 
-          <View style={styles.applianceHeader}>
-            <View style={styles.applianceIcon}>
-              <Text style={styles.applianceEmoji}>🧺</Text>
-            </View>
+          <View style={styles.infoRow}>
+            <Text style={styles.label}>
+              Appliance
+            </Text>
 
-            <View style={styles.applianceTitleContainer}>
-              <Text style={styles.applianceName}>
-                Washing Machine
-              </Text>
-
-              <Text style={styles.applianceType}>
-                Home Appliance
-              </Text>
-            </View>
+            <Text style={styles.value}>
+              Washing Machine
+            </Text>
           </View>
 
-          <View style={styles.divider} />
-
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>
+          <View style={styles.infoRow}>
+            <Text style={styles.label}>
               Model
             </Text>
 
-            <Text style={styles.detailValue}>
+            <Text style={styles.value}>
               Samsung
             </Text>
           </View>
 
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>
+          <View style={styles.infoRow}>
+            <Text style={styles.label}>
               Serial Number
             </Text>
 
-            <Text style={styles.detailValue}>
+            <Text style={styles.value}>
               W88910
             </Text>
           </View>
@@ -112,40 +135,32 @@ export default function ApplianceInformationScreen({
             Customer Information
           </Text>
 
-          <View style={styles.customerRow}>
-            <View style={styles.customerIcon}>
-              <Text style={styles.customerEmoji}>
-                👤
-              </Text>
-            </View>
+          <View style={styles.infoRow}>
+            <Text style={styles.label}>
+              Customer
+            </Text>
 
-            <View>
-              <Text style={styles.customerName}>
-                Kumar
-              </Text>
-
-              <Text style={styles.customerDetail}>
-                Customer
-              </Text>
-            </View>
+            <Text style={styles.value}>
+              Kumar
+            </Text>
           </View>
 
-          <View style={styles.infoBox}>
-            <Text style={styles.infoLabel}>
+          <View style={styles.infoRow}>
+            <Text style={styles.label}>
               Phone
             </Text>
 
-            <Text style={styles.infoValue}>
+            <Text style={styles.value}>
               +94 77 123 4567
             </Text>
           </View>
 
-          <View style={styles.infoBox}>
-            <Text style={styles.infoLabel}>
+          <View style={styles.infoRow}>
+            <Text style={styles.label}>
               Address
             </Text>
 
-            <Text style={styles.infoValue}>
+            <Text style={styles.value}>
               No. 25, Main Street, Colombo
             </Text>
           </View>
@@ -157,11 +172,9 @@ export default function ApplianceInformationScreen({
             Problem Description
           </Text>
 
-          <View style={styles.problemBox}>
-            <Text style={styles.problemText}>
-              Not working properly
-            </Text>
-          </View>
+          <Text style={styles.description}>
+            Not working properly
+          </Text>
         </View>
 
         {/* Request Details */}
@@ -170,28 +183,28 @@ export default function ApplianceInformationScreen({
             Request Details
           </Text>
 
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>
+          <View style={styles.infoRow}>
+            <Text style={styles.label}>
               Request ID
             </Text>
 
-            <Text style={styles.detailValue}>
-              SR-1001
+            <Text style={styles.value}>
+              {serviceRequestId}
             </Text>
           </View>
 
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>
+          <View style={styles.infoRow}>
+            <Text style={styles.label}>
               Date
             </Text>
 
-            <Text style={styles.detailValue}>
+            <Text style={styles.value}>
               04 Oct 2026
             </Text>
           </View>
 
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>
+          <View style={styles.infoRow}>
+            <Text style={styles.label}>
               Priority
             </Text>
 
@@ -203,19 +216,20 @@ export default function ApplianceInformationScreen({
           </View>
         </View>
 
-        {/* Update Service Status Button */}
+        {/* Update Service Status */}
         <Pressable
           style={styles.updateButton}
           onPress={() =>
-            navigation.navigate('UpdateServiceStatus')
+            navigation.navigate(
+              'UpdateServiceStatus',
+              {
+                serviceRequestId,
+              },
+            )
           }
         >
           <Text style={styles.updateButtonText}>
             Update Service Status
-          </Text>
-
-          <Text style={styles.updateArrow}>
-            →
           </Text>
         </Pressable>
       </ScrollView>
@@ -240,10 +254,11 @@ const styles = StyleSheet.create({
 
   contentContainer: {
     paddingHorizontal: 20,
-    paddingBottom: 35,
+    paddingBottom: 40,
   },
 
   /* Header */
+
   header: {
     height: 78,
     flexDirection: 'row',
@@ -276,7 +291,8 @@ const styles = StyleSheet.create({
     fontSize: 22,
   },
 
-  /* Back */
+  /* Back Button */
+
   backButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -298,6 +314,7 @@ const styles = StyleSheet.create({
   },
 
   /* Title */
+
   titleSection: {
     marginBottom: 20,
   },
@@ -315,193 +332,79 @@ const styles = StyleSheet.create({
   },
 
   /* Cards */
+
   card: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#DEE8ED',
     borderRadius: 16,
     padding: 18,
-    marginBottom: 16,
+    marginBottom: 14,
   },
 
   cardTitle: {
     fontSize: 17,
     fontWeight: '700',
     color: '#103851',
-    marginBottom: 16,
+    marginBottom: 14,
   },
 
-  /* Appliance */
-  applianceHeader: {
+  infoRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    paddingVertical: 7,
   },
 
-  applianceIcon: {
-    width: 58,
-    height: 58,
-    borderRadius: 14,
-    backgroundColor: '#F1F9F9',
-    borderWidth: 1,
-    borderColor: '#DEE8ED',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  applianceEmoji: {
-    fontSize: 27,
-  },
-
-  applianceTitleContainer: {
-    marginLeft: 14,
-  },
-
-  applianceName: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#103851',
-  },
-
-  applianceType: {
-    marginTop: 4,
+  label: {
+    flex: 1,
     fontSize: 13,
     color: '#58717F',
   },
 
-  divider: {
-    height: 1,
-    backgroundColor: '#DEE8ED',
-    marginVertical: 17,
-  },
-
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 7,
-  },
-
-  detailLabel: {
-    fontSize: 14,
-    color: '#58717F',
-  },
-
-  detailValue: {
-    fontSize: 14,
+  value: {
+    flex: 1.3,
+    fontSize: 13,
     fontWeight: '600',
     color: '#103851',
-    maxWidth: '60%',
     textAlign: 'right',
   },
 
-  /* Customer */
-  customerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-
-  customerIcon: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#F1F9F9',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#DEE8ED',
-  },
-
-  customerEmoji: {
-    fontSize: 22,
-  },
-
-  customerName: {
-    marginLeft: 13,
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#103851',
-  },
-
-  customerDetail: {
-    marginLeft: 13,
-    marginTop: 3,
-    fontSize: 12,
-    color: '#58717F',
-  },
-
-  infoBox: {
-    backgroundColor: '#F1F9F9',
-    borderRadius: 10,
-    padding: 12,
-    marginTop: 8,
-    borderWidth: 1,
-    borderColor: '#DEE8ED',
-  },
-
-  infoLabel: {
-    fontSize: 12,
-    color: '#58717F',
-    marginBottom: 4,
-  },
-
-  infoValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#103851',
-  },
-
-  /* Problem */
-  problemBox: {
-    backgroundColor: '#F1F9F9',
-    borderWidth: 1,
-    borderColor: '#DEE8ED',
-    borderRadius: 11,
-    padding: 15,
-  },
-
-  problemText: {
+  description: {
     fontSize: 14,
     lineHeight: 21,
     color: '#58717F',
   },
 
   /* Priority */
+
   priorityBadge: {
-    backgroundColor: '#F1F9F9',
-    borderWidth: 1,
-    borderColor: '#0EA5C6',
+    backgroundColor: '#0EA5C6',
     paddingHorizontal: 13,
     paddingVertical: 6,
-    borderRadius: 20,
+    borderRadius: 15,
   },
 
   priorityText: {
+    color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
-    color: '#0EA5C6',
   },
 
   /* Update Button */
+
   updateButton: {
-    height: 54,
+    minHeight: 48,
     borderRadius: 14,
     backgroundColor: '#087F80',
-    flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 4,
+    alignItems: 'center',
+    marginTop: 6,
   },
 
   updateButtonText: {
-    fontSize: 15,
+    color: '#FFFFFF',
+    fontSize: 14,
     fontWeight: '700',
-    color: '#FFFFFF',
-  },
-
-  updateArrow: {
-    fontSize: 21,
-    color: '#FFFFFF',
-    marginLeft: 10,
   },
 });

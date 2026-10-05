@@ -9,13 +9,28 @@ import {
   View,
 } from 'react-native';
 
-export default function AddWarrantyScreen() {
-  const [applianceName, setApplianceName] = useState('Samsung Refrigerator');
-  const [brand, setBrand] = useState('');
-  const [model, setModel] = useState('RT38');
-  const [purchaseDate, setPurchaseDate] = useState('15 / 03 / 2026');
+import type {
+  HomeownerScreenProps,
+} from '../../navigation/homeownerTypes';
+
+export default function AddWarrantyScreen({
+  route,
+  navigation,
+}: HomeownerScreenProps<'AddWarranty'>) {
+const [applianceName, setApplianceName] =
+  useState(route.params.applianceName);
+
+const [brand, setBrand] =
+  useState(route.params.brand);
+
+const [model, setModel] =
+  useState(route.params.model);
+  const [purchaseDate, setPurchaseDate] =
+  useState(route.params.purchaseDate);
   const [warrantyPeriod, setWarrantyPeriod] = useState('2 Years');
   const [expiryDate, setExpiryDate] = useState('15 / 03 / 2028');
+  const [serialNumber, setSerialNumber] =
+  useState(route.params.serialNumber);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -24,7 +39,12 @@ export default function AddWarrantyScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Pressable style={styles.backButton}>
+          <Pressable
+  style={styles.backButton}
+  onPress={() => {
+    navigation.goBack();
+  }}
+>
             <Text style={styles.backText}>‹</Text>
           </Pressable>
 

@@ -94,9 +94,9 @@ function parseAppliance(
         ? data.purchaseDate
         : '',
 
-    warrantyExpiryDate:
-      typeof data.warrantyExpiryDate === 'string'
-        ? data.warrantyExpiryDate
+    installationDate:
+      typeof data.installationDate === 'string'
+        ? data.installationDate
         : '',
 
     createdAt:
@@ -190,8 +190,8 @@ export async function addHomeownerAppliance(
         purchaseDate:
           appliance.purchaseDate,
 
-        warrantyExpiryDate:
-          appliance.warrantyExpiryDate,
+        installationDate:
+          appliance.installationDate,
 
         createdAt:
           serverTimestamp(),
@@ -306,11 +306,11 @@ export async function updateHomeownerAppliance(
   }
 
   if (
-    updates.warrantyExpiryDate !==
+    updates.installationDate !==
     undefined
   ) {
-    cleanedUpdates.warrantyExpiryDate =
-      updates.warrantyExpiryDate;
+    cleanedUpdates.installationDate =
+      updates.installationDate;
   }
 
   await updateDoc(

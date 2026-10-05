@@ -3,6 +3,8 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import TechnicianDashboardScreen from '../screens/technician/TechnicianDashboardScreen';
 import ServiceRequestsScreen from '../screens/technician/ServiceRequestsScreen';
 import ApplianceInformationScreen from '../screens/technician/ApplianceInformationScreen';
+import UpdateServiceStatusScreen from '../screens/technician/UpdateServiceStatusScreen';
+import RepairHistoryScreen from '../screens/technician/RepairHistoryScreen';
 
 import type { TechnicianStackParamList } from './technicianTypes';
 
@@ -29,6 +31,16 @@ export default function TechnicianNavigator() {
       <Stack.Screen
         name="ApplianceInformation"
         component={ApplianceInformationScreen}
+      />
+
+      <Stack.Screen
+        name="UpdateServiceStatus"
+        component={UpdateServiceStatusScreen}
+      />
+
+      <Stack.Screen
+        name="RepairHistory"
+        component={RepairHistoryScreen}
       />
     </Stack.Navigator>
   );

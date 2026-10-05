@@ -770,11 +770,20 @@ export default function ApplianceDetailsScreen({
               style={
                 styles.addWarrantyButton
               }
-              onPress={() => {
-                // Add Warranty screen navigation
-                // will be connected by the member
-                // responsible for the warranty module.
-              }}
+  onPress={() => {
+  if (!appliance) {
+    return;
+  }
+
+  navigation.navigate('AddWarranty', {
+    applianceId: appliance.id,
+    applianceName: appliance.name,
+    brand: appliance.brand,
+    model: appliance.model,
+    serialNumber: appliance.serialNumber,
+    purchaseDate: appliance.purchaseDate,
+  });
+}}
             >
               <Ionicons
                 name="add-circle-outline"

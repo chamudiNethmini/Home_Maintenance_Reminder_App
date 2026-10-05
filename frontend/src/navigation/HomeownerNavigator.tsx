@@ -14,6 +14,9 @@ import AddApplianceScreen
 import ApplianceDetailsScreen
   from '../screens/homeowner/ApplianceDetailsScreen';
 
+import AddWarrantyScreen
+  from '../screens/warranty/AddWarrantyScreen';
+
   import HomeownerProfileScreen
   from '../screens/homeowner/HomeownerProfileScreen';
   import MaintenanceCalendarScreen
@@ -67,6 +70,12 @@ export default function HomeownerNavigator() {
           ApplianceDetailsScreen
         }
       />
+<Stack.Screen
+  name="AddWarranty"
+  component={AddWarrantyScreen}
+/>
+
+
       <Stack.Screen
   name="Profile"
   component={HomeownerProfileScreen}

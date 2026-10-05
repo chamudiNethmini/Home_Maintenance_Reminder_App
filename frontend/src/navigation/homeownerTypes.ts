@@ -9,6 +9,15 @@ export type HomeownerStackParams = {
 
   AddAppliance: undefined;
 
+AddWarranty: {
+  applianceId: string;
+  applianceName: string;
+  brand: string;
+  model: string;
+  serialNumber: string;
+  purchaseDate: string;
+};
+
   ApplianceDetails: {
     applianceId: string;
   };

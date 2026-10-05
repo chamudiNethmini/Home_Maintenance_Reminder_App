@@ -19,7 +19,7 @@ export interface HomeownerAppliance {
 
   // Stored as YYYY-MM-DD
   purchaseDate: string;
-  warrantyExpiryDate: string;
+  installationDate: string;
 
   createdAt?: string;
   updatedAt?: string;
@@ -32,7 +32,7 @@ export type CreateHomeownerAppliance = {
   serialNumber: string;
   category: ApplianceCategory;
   purchaseDate: string;
-  warrantyExpiryDate: string;
+  installationDate: string;
 };
 
 export type UpdateHomeownerAppliance =

@@ -1,6 +1,4 @@
-import {
-  useState,
-} from 'react';
+import { useState } from 'react';
 
 import {
   ActivityIndicator,
@@ -16,13 +14,9 @@ import {
   View,
 } from 'react-native';
 
-import {
-  Ionicons,
-} from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 
-import {
-  useSafeAreaInsets,
-} from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type {
   HomeownerScreenProps,
@@ -48,14 +42,13 @@ const COLORS = {
   illustrationLine: '#CEDCE3',
 };
 
-const categories:
-  ApplianceCategory[] = [
-    'Kitchen',
-    'Laundry',
-    'Cooling',
-    'Cleaning',
-    'Other',
-  ];
+const categories: ApplianceCategory[] = [
+  'Kitchen',
+  'Laundry',
+  'Cooling',
+  'Cleaning',
+  'Other',
+];
 
 const MONTHS = [
   'January',
@@ -85,8 +78,7 @@ const WEEK_DAYS = [
 export default function AddApplianceScreen({
   navigation,
 }: HomeownerScreenProps<'AddAppliance'>) {
-  const insets =
-    useSafeAreaInsets();
+  const insets = useSafeAreaInsets();
 
   const [
     name,
@@ -111,10 +103,9 @@ export default function AddApplianceScreen({
   const [
     category,
     setCategory,
-  ] =
-    useState<ApplianceCategory>(
-      'Kitchen',
-    );
+  ] = useState<ApplianceCategory>(
+    'Kitchen',
+  );
 
   const [
     purchaseDate,
@@ -122,8 +113,8 @@ export default function AddApplianceScreen({
   ] = useState('');
 
   const [
-    warrantyExpiryDate,
-    setWarrantyExpiryDate,
+    installationDate,
+    setInstallationDate,
   ] = useState('');
 
   const [
@@ -136,117 +127,139 @@ export default function AddApplianceScreen({
     setSaving,
   ] = useState(false);
 
-  const validate =
-    (): boolean => {
-      if (
-        !name.trim() ||
-        !brand.trim() ||
-        !model.trim()
-      ) {
-        setError(
-          'Please enter appliance name, brand and model.',
-        );
+  const validate = (): boolean => {
+    if (
+      !name.trim() ||
+      !brand.trim() ||
+      !model.trim()
+    ) {
+      setError(
+        'Please enter appliance name, brand and model.',
+      );
 
-        return false;
-      }
-
-      const datePattern =
-        /^\d{4}-\d{2}-\d{2}$/;
-
-      if (
-        !datePattern.test(
-          purchaseDate,
-        )
-      ) {
-        setError(
-          'Please select a purchase date.',
-        );
-
-        return false;
-      }
-
-      if (
-        !datePattern.test(
-          warrantyExpiryDate,
-        )
-      ) {
-        setError(
-          'Please select a warranty expiry date.',
-        );
-
-        return false;
-      }
-
-      setError('');
-
-      return true;
-    };
-
-  const handleSave = async () => {
-    if (!validate()) {
-      return;
+      return false;
     }
 
-    try {
-      setSaving(true);
-      setError('');
+    const datePattern =
+      /^\d{4}-\d{2}-\d{2}$/;
 
-      await addHomeownerAppliance({
-        name: name.trim(),
-        brand: brand.trim(),
-        model: model.trim(),
-        serialNumber:
-          serialNumber.trim(),
-        category,
-        purchaseDate:
-          purchaseDate.trim(),
-        warrantyExpiryDate:
-          warrantyExpiryDate.trim(),
-      });
+    if (
+      !datePattern.test(
+        purchaseDate,
+      )
+    ) {
+      setError(
+        'Please select a purchase date.',
+      );
 
-      // Chrome / Expo Web
-      if (Platform.OS === 'web') {
-        window.alert(
-          'Appliance added successfully!',
-        );
+      return false;
+    }
 
-        navigation.replace(
-          'MyAppliances',
-        );
+    if (
+      !datePattern.test(
+        installationDate,
+      )
+    ) {
+      setError(
+        'Please select an installation date.',
+      );
 
+      return false;
+    }
+
+    setError('');
+
+    return true;
+  };
+
+  const handleSave =
+    async () => {
+      if (!validate()) {
         return;
       }
 
-      // Android / iOS
-      Alert.alert(
-        'Success',
-        'Appliance added successfully!',
-        [
+      try {
+        setSaving(true);
+        setError('');
+
+        await addHomeownerAppliance(
           {
-            text: 'OK',
-            onPress: () =>
-              navigation.replace(
-                'MyAppliances',
-              ),
+            name:
+              name.trim(),
+
+            brand:
+              brand.trim(),
+
+            model:
+              model.trim(),
+
+            serialNumber:
+              serialNumber.trim(),
+
+            category,
+
+            purchaseDate:
+              purchaseDate.trim(),
+
+            installationDate:
+              installationDate.trim(),
           },
-        ],
-      );
-    } catch (saveError) {
-      setError(
-        saveError instanceof Error
-          ? saveError.message
-          : 'Unable to save appliance.',
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
+        );
+
+        if (
+          Platform.OS ===
+          'web'
+        ) {
+          window.alert(
+            'Appliance added successfully!',
+          );
+
+          navigation.replace(
+            'MyAppliances',
+          );
+
+          return;
+        }
+
+        Alert.alert(
+          'Success',
+          'Appliance added successfully!',
+          [
+            {
+              text:
+                'OK',
+
+              onPress: () =>
+                navigation.replace(
+                  'MyAppliances',
+                ),
+            },
+          ],
+        );
+      } catch (
+        saveError
+      ) {
+        setError(
+          saveError instanceof
+            Error
+            ? saveError.message
+            : 'Unable to save appliance.',
+        );
+      } finally {
+        setSaving(
+          false,
+        );
+      }
+    };
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={
+        styles.container
+      }
       behavior={
-        Platform.OS === 'ios'
+        Platform.OS ===
+        'ios'
           ? 'padding'
           : undefined
       }
@@ -258,12 +271,15 @@ export default function AddApplianceScreen({
         }
         contentContainerStyle={[
           styles.content,
+
           {
             paddingTop:
-              insets.top + 18,
+              insets.top +
+              18,
 
             paddingBottom:
-              insets.bottom + 35,
+              insets.bottom +
+              35,
           },
         ]}
       >
@@ -304,8 +320,7 @@ export default function AddApplianceScreen({
                 styles.subtitle
               }
             >
-              Register a new
-              household appliance
+              Register a new household appliance
             </Text>
           </View>
         </View>
@@ -318,7 +333,9 @@ export default function AddApplianceScreen({
         >
           <FormField
             label="Appliance Name"
-            value={name}
+            value={
+              name
+            }
             placeholder="e.g. Washing Machine"
             onChangeText={
               setName
@@ -327,7 +344,9 @@ export default function AddApplianceScreen({
 
           <FormField
             label="Brand"
-            value={brand}
+            value={
+              brand
+            }
             placeholder="e.g. Samsung"
             onChangeText={
               setBrand
@@ -336,7 +355,9 @@ export default function AddApplianceScreen({
 
           <FormField
             label="Model"
-            value={model}
+            value={
+              model
+            }
             placeholder="e.g. WW80"
             onChangeText={
               setModel
@@ -374,7 +395,9 @@ export default function AddApplianceScreen({
               }
             >
               {categories.map(
-                (item) => (
+                (
+                  item,
+                ) => (
                   <Pressable
                     key={
                       item
@@ -420,14 +443,14 @@ export default function AddApplianceScreen({
             }
           />
 
-          {/* Warranty Date */}
+          {/* Installation Date */}
           <DatePickerField
-            label="Warranty Expiry Date"
+            label="Installation Date"
             value={
-              warrantyExpiryDate
+              installationDate
             }
             onChange={
-              setWarrantyExpiryDate
+              setInstallationDate
             }
           />
 
@@ -466,7 +489,8 @@ export default function AddApplianceScreen({
               styles.saveButton,
 
               saving && {
-                opacity: 0.65,
+                opacity:
+                  0.65,
               },
             ]}
           >
@@ -508,7 +532,9 @@ export default function AddApplianceScreen({
 
 type FormFieldProps = {
   label: string;
+
   value: string;
+
   placeholder: string;
 
   onChangeText:
@@ -538,7 +564,9 @@ function FormField({
       </Text>
 
       <TextInput
-        value={value}
+        value={
+          value
+        }
         placeholder={
           placeholder
         }
@@ -575,16 +603,23 @@ function getInitialMonth(
   value: string,
 ) {
   const parts =
-    value.split('-');
+    value.split(
+      '-',
+    );
 
   if (
-    parts.length === 3
+    parts.length ===
+    3
   ) {
     const year =
-      Number(parts[0]);
+      Number(
+        parts[0],
+      );
 
     const month =
-      Number(parts[1]);
+      Number(
+        parts[1],
+      );
 
     if (
       !Number.isNaN(
@@ -671,7 +706,7 @@ function DatePickerField({
 
   const calendarCells:
     Array<number | null> =
-    [];
+      [];
 
   for (
     let index = 0;
@@ -685,7 +720,8 @@ function DatePickerField({
 
   for (
     let day = 1;
-    day <= daysInMonth;
+    day <=
+    daysInMonth;
     day += 1
   ) {
     calendarCells.push(
@@ -711,7 +747,9 @@ function DatePickerField({
         ),
       );
 
-      setVisible(true);
+      setVisible(
+        true,
+      );
     };
 
   const previousMonth =
@@ -788,7 +826,6 @@ function DatePickerField({
         {label}
       </Text>
 
-      {/* Clickable Date Field */}
       <Pressable
         style={
           styles.dateInput
@@ -818,7 +855,6 @@ function DatePickerField({
         />
       </Pressable>
 
-      {/* Calendar Modal */}
       <Modal
         visible={
           visible
@@ -902,7 +938,9 @@ function DatePickerField({
               }
             >
               {WEEK_DAYS.map(
-                (day) => (
+                (
+                  day,
+                ) => (
                   <Text
                     key={
                       day
@@ -917,7 +955,7 @@ function DatePickerField({
               )}
             </View>
 
-            {/* Calendar Days */}
+            {/* Days */}
             <View
               style={
                 styles.daysGrid
@@ -1050,16 +1088,19 @@ function DatePickerField({
 const styles =
   StyleSheet.create({
     container: {
-      flex: 1,
+      flex:
+        1,
 
       backgroundColor:
         COLORS.background,
     },
 
     content: {
-      width: '100%',
+      width:
+        '100%',
 
-      maxWidth: 500,
+      maxWidth:
+        500,
 
       alignSelf:
         'center',
@@ -1075,16 +1116,19 @@ const styles =
       alignItems:
         'center',
 
-      gap: 14,
+      gap:
+        14,
 
       marginBottom:
         22,
     },
 
     backButton: {
-      width: 44,
+      width:
+        44,
 
-      height: 44,
+      height:
+        44,
 
       borderRadius:
         14,
@@ -1092,7 +1136,8 @@ const styles =
       backgroundColor:
         COLORS.white,
 
-      borderWidth: 1,
+      borderWidth:
+        1,
 
       borderColor:
         COLORS.border,
@@ -1105,7 +1150,8 @@ const styles =
     },
 
     title: {
-      fontSize: 25,
+      fontSize:
+        25,
 
       fontWeight:
         '800',
@@ -1115,9 +1161,11 @@ const styles =
     },
 
     subtitle: {
-      fontSize: 13,
+      fontSize:
+        13,
 
-      marginTop: 3,
+      marginTop:
+        3,
 
       color:
         COLORS.secondary,
@@ -1127,7 +1175,8 @@ const styles =
       backgroundColor:
         COLORS.white,
 
-      borderWidth: 1,
+      borderWidth:
+        1,
 
       borderColor:
         COLORS.border,
@@ -1135,17 +1184,21 @@ const styles =
       borderRadius:
         20,
 
-      padding: 19,
+      padding:
+        19,
 
-      gap: 17,
+      gap:
+        17,
     },
 
     fieldGroup: {
-      gap: 7,
+      gap:
+        7,
     },
 
     label: {
-      fontSize: 13,
+      fontSize:
+        13,
 
       fontWeight:
         '700',
@@ -1155,9 +1208,11 @@ const styles =
     },
 
     input: {
-      minHeight: 51,
+      minHeight:
+        51,
 
-      borderWidth: 1,
+      borderWidth:
+        1,
 
       borderColor:
         COLORS.illustrationLine,
@@ -1174,7 +1229,8 @@ const styles =
       color:
         COLORS.heading,
 
-      fontSize: 14,
+      fontSize:
+        14,
     },
 
     categoryContainer: {
@@ -1184,11 +1240,13 @@ const styles =
       flexWrap:
         'wrap',
 
-      gap: 8,
+      gap:
+        8,
     },
 
     categoryButton: {
-      borderWidth: 1,
+      borderWidth:
+        1,
 
       borderColor:
         COLORS.border,
@@ -1218,7 +1276,8 @@ const styles =
       color:
         COLORS.secondary,
 
-      fontSize: 12,
+      fontSize:
+        12,
 
       fontWeight:
         '600',
@@ -1227,14 +1286,17 @@ const styles =
     selectedCategoryText: {
       color:
         COLORS.teal,
+
+      fontWeight:
+        '700',
     },
 
-    /* Date Field */
-
     dateInput: {
-      minHeight: 51,
+      minHeight:
+        51,
 
-      borderWidth: 1,
+      borderWidth:
+        1,
 
       borderColor:
         COLORS.illustrationLine,
@@ -1262,7 +1324,8 @@ const styles =
       color:
         COLORS.heading,
 
-      fontSize: 14,
+      fontSize:
+        14,
     },
 
     datePlaceholder: {
@@ -1270,10 +1333,9 @@ const styles =
         COLORS.secondary,
     },
 
-    /* Calendar */
-
     modalOverlay: {
-      flex: 1,
+      flex:
+        1,
 
       backgroundColor:
         'rgba(16, 56, 81, 0.35)',
@@ -1284,13 +1346,16 @@ const styles =
       alignItems:
         'center',
 
-      padding: 20,
+      padding:
+        20,
     },
 
     calendarCard: {
-      width: '100%',
+      width:
+        '100%',
 
-      maxWidth: 390,
+      maxWidth:
+        390,
 
       backgroundColor:
         COLORS.white,
@@ -1298,12 +1363,14 @@ const styles =
       borderRadius:
         20,
 
-      borderWidth: 1,
+      borderWidth:
+        1,
 
       borderColor:
         COLORS.border,
 
-      padding: 18,
+      padding:
+        18,
     },
 
     calendarHeader: {
@@ -1321,9 +1388,11 @@ const styles =
     },
 
     monthButton: {
-      width: 40,
+      width:
+        40,
 
-      height: 40,
+      height:
+        40,
 
       borderRadius:
         12,
@@ -1342,7 +1411,8 @@ const styles =
       color:
         COLORS.heading,
 
-      fontSize: 16,
+      fontSize:
+        16,
 
       fontWeight:
         '800',
@@ -1352,7 +1422,8 @@ const styles =
       flexDirection:
         'row',
 
-      marginBottom: 6,
+      marginBottom:
+        6,
     },
 
     weekDayText: {
@@ -1365,7 +1436,8 @@ const styles =
       color:
         COLORS.secondary,
 
-      fontSize: 10,
+      fontSize:
+        10,
 
       fontWeight:
         '700',
@@ -1383,7 +1455,8 @@ const styles =
       width:
         '14.285%',
 
-      aspectRatio: 1,
+      aspectRatio:
+        1,
 
       alignItems:
         'center',
@@ -1396,7 +1469,8 @@ const styles =
     },
 
     dayText: {
-      fontSize: 13,
+      fontSize:
+        13,
 
       fontWeight:
         '600',
@@ -1419,14 +1493,17 @@ const styles =
     },
 
     calendarActions: {
-      marginTop: 16,
+      marginTop:
+        16,
 
-      borderTopWidth: 1,
+      borderTopWidth:
+        1,
 
       borderTopColor:
         COLORS.border,
 
-      paddingTop: 14,
+      paddingTop:
+        14,
 
       flexDirection:
         'row',
@@ -1434,11 +1511,13 @@ const styles =
       justifyContent:
         'flex-end',
 
-      gap: 9,
+      gap:
+        9,
     },
 
     calendarCancelButton: {
-      minHeight: 42,
+      minHeight:
+        42,
 
       paddingHorizontal:
         16,
@@ -1446,7 +1525,8 @@ const styles =
       borderRadius:
         10,
 
-      borderWidth: 1,
+      borderWidth:
+        1,
 
       borderColor:
         COLORS.border,
@@ -1465,14 +1545,16 @@ const styles =
       color:
         COLORS.secondary,
 
-      fontSize: 12,
+      fontSize:
+        12,
 
       fontWeight:
         '700',
     },
 
     todayButton: {
-      minHeight: 42,
+      minHeight:
+        42,
 
       paddingHorizontal:
         16,
@@ -1492,14 +1574,16 @@ const styles =
       justifyContent:
         'center',
 
-      gap: 6,
+      gap:
+        6,
     },
 
     todayButtonText: {
       color:
         COLORS.white,
 
-      fontSize: 12,
+      fontSize:
+        12,
 
       fontWeight:
         '700',
@@ -1509,12 +1593,14 @@ const styles =
       flexDirection:
         'row',
 
-      gap: 7,
+      gap:
+        7,
 
       backgroundColor:
         '#FFF5F6',
 
-      borderWidth: 1,
+      borderWidth:
+        1,
 
       borderColor:
         '#F1D3D7',
@@ -1522,22 +1608,27 @@ const styles =
       borderRadius:
         10,
 
-      padding: 10,
+      padding:
+        10,
     },
 
     errorText: {
-      flex: 1,
+      flex:
+        1,
 
       color:
         '#AC3546',
 
-      fontSize: 12,
+      fontSize:
+        12,
 
-      lineHeight: 17,
+      lineHeight:
+        17,
     },
 
     saveButton: {
-      minHeight: 54,
+      minHeight:
+        54,
 
       borderRadius:
         13,
@@ -1554,14 +1645,16 @@ const styles =
       justifyContent:
         'center',
 
-      gap: 8,
+      gap:
+        8,
     },
 
     saveButtonText: {
       color:
         COLORS.white,
 
-      fontSize: 15,
+      fontSize:
+        15,
 
       fontWeight:
         '700',

@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import {
+  useState,
+} from 'react';
 
 import {
   KeyboardAvoidingView,
@@ -38,7 +40,7 @@ import {
 type Props =
   NativeStackScreenProps<
     RootStackParamList,
-    'Login'
+    'SignUp'
   >;
 
 const roleLabels:
@@ -53,7 +55,7 @@ Record<UserRole, string> = {
     'Warranty Provider',
 };
 
-export default function LoginScreen({
+export default function SignUpScreen({
   route,
   navigation,
 }: Props) {
@@ -61,12 +63,17 @@ export default function LoginScreen({
     useSafeAreaInsets();
 
   const {
-    login,
+    signup,
   } = useAuth();
 
   const {
     role,
   } = route.params;
+
+  const [
+    name,
+    setName,
+  ] = useState('');
 
   const [
     email,
@@ -76,6 +83,11 @@ export default function LoginScreen({
   const [
     password,
     setPassword,
+  ] = useState('');
+
+  const [
+    confirmPassword,
+    setConfirmPassword,
   ] = useState('');
 
   const [
@@ -93,16 +105,104 @@ export default function LoginScreen({
     setLoading,
   ] = useState(false);
 
-  const handleLogin =
-    async () => {
+  const clearError =
+    () => {
       if (
-        !email.trim() ||
-        !password.trim()
+        error
+      ) {
+        setError('');
+      }
+    };
+
+  const validate =
+    () => {
+      if (
+        !name.trim()
       ) {
         setError(
-          'Please enter your email and password.',
+          'Please enter your full name.',
         );
 
+        return false;
+      }
+
+      if (
+        !email.trim()
+      ) {
+        setError(
+          'Please enter your email address.',
+        );
+
+        return false;
+      }
+
+      const emailPattern =
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+      if (
+        !emailPattern.test(
+          email.trim(),
+        )
+      ) {
+        setError(
+          'Please enter a valid email address.',
+        );
+
+        return false;
+      }
+
+      if (
+        !password
+      ) {
+        setError(
+          'Please enter a password.',
+        );
+
+        return false;
+      }
+
+      if (
+        password.length <
+        6
+      ) {
+        setError(
+          'Password must contain at least 6 characters.',
+        );
+
+        return false;
+      }
+
+      if (
+        !confirmPassword
+      ) {
+        setError(
+          'Please confirm your password.',
+        );
+
+        return false;
+      }
+
+      if (
+        password !==
+        confirmPassword
+      ) {
+        setError(
+          'Passwords do not match.',
+        );
+
+        return false;
+      }
+
+      setError('');
+
+      return true;
+    };
+
+  const handleSignUp =
+    async () => {
+      if (
+        !validate()
+      ) {
         return;
       }
 
@@ -113,24 +213,34 @@ export default function LoginScreen({
 
         setError('');
 
-        await login(
-          email,
+        await signup(
+          name.trim(),
+          email.trim(),
           password,
           role,
         );
+
+        /*
+         * No navigation is required here.
+         *
+         * AuthContext will set the logged-in user,
+         * then RootNavigator will automatically
+         * open the correct dashboard according
+         * to the selected role.
+         */
       } catch (
-        loginError
+        signupError
       ) {
         if (
-          loginError instanceof
+          signupError instanceof
           Error
         ) {
           setError(
-            loginError.message,
+            signupError.message,
           );
         } else {
           setError(
-            'Login failed. Please try again.',
+            'Unable to create your account. Please try again.',
           );
         }
       } finally {
@@ -217,7 +327,7 @@ export default function LoginScreen({
                 styles.heading
               }
             >
-              Login to FixMate
+              Create Your Account
             </Text>
 
             <View
@@ -243,17 +353,74 @@ export default function LoginScreen({
                 styles.subtitle
               }
             >
-              Enter your account details to continue.
+              Enter your details to create your FixMate account.
             </Text>
           </View>
 
-          {/* Login Card */}
+          {/* Sign Up Card */}
 
           <View
             style={
               styles.formCard
             }
           >
+            {/* Full Name */}
+
+            <View
+              style={
+                styles.fieldGroup
+              }
+            >
+              <Text
+                style={
+                  styles.label
+                }
+              >
+                Full Name
+              </Text>
+
+              <View
+                style={
+                  styles.inputRow
+                }
+              >
+                <Icon
+                  name="person-outline"
+                  size={20}
+                  color={
+                    colors.muted
+                  }
+                />
+
+                <TextInput
+                  value={
+                    name
+                  }
+                  onChangeText={(
+                    text,
+                  ) => {
+                    setName(
+                      text,
+                    );
+
+                    clearError();
+                  }}
+                  placeholder="Enter your full name"
+                  placeholderTextColor="#58717F"
+                  autoCapitalize="words"
+                  autoCorrect={
+                    false
+                  }
+                  editable={
+                    !loading
+                  }
+                  style={
+                    styles.input
+                  }
+                />
+              </View>
+            </View>
+
             {/* Email */}
 
             <View
@@ -293,11 +460,7 @@ export default function LoginScreen({
                       text,
                     );
 
-                    if (
-                      error
-                    ) {
-                      setError('');
-                    }
+                    clearError();
                   }}
                   placeholder="Enter your email"
                   placeholderTextColor="#58717F"
@@ -355,22 +518,19 @@ export default function LoginScreen({
                       text,
                     );
 
-                    if (
-                      error
-                    ) {
-                      setError('');
-                    }
+                    clearError();
                   }}
                   placeholder="Enter your password"
                   placeholderTextColor="#58717F"
                   secureTextEntry={
                     !showPassword
                   }
+                  autoCapitalize="none"
+                  autoCorrect={
+                    false
+                  }
                   editable={
                     !loading
-                  }
-                  onSubmitEditing={
-                    handleLogin
                   }
                   style={
                     styles.input
@@ -403,6 +563,77 @@ export default function LoginScreen({
                   />
                 </Pressable>
               </View>
+
+              <Text
+                style={
+                  styles.passwordHint
+                }
+              >
+                Use at least 6 characters.
+              </Text>
+            </View>
+
+            {/* Confirm Password */}
+
+            <View
+              style={
+                styles.fieldGroup
+              }
+            >
+              <Text
+                style={
+                  styles.label
+                }
+              >
+                Confirm Password
+              </Text>
+
+              <View
+                style={
+                  styles.inputRow
+                }
+              >
+                <Icon
+                  name="lock-closed-outline"
+                  size={20}
+                  color={
+                    colors.muted
+                  }
+                />
+
+                <TextInput
+                  value={
+                    confirmPassword
+                  }
+                  onChangeText={(
+                    text,
+                  ) => {
+                    setConfirmPassword(
+                      text,
+                    );
+
+                    clearError();
+                  }}
+                  placeholder="Re-enter your password"
+                  placeholderTextColor="#58717F"
+                  secureTextEntry={
+                    !showPassword
+                  }
+                  autoCapitalize="none"
+                  autoCorrect={
+                    false
+                  }
+                  editable={
+                    !loading
+                  }
+                  onSubmitEditing={
+                    handleSignUp
+                  }
+                  style={
+                    styles.input
+                  }
+                />
+              </View>
             </View>
 
             {/* Error */}
@@ -429,7 +660,7 @@ export default function LoginScreen({
               </View>
             ) : null}
 
-            {/* Login Button */}
+            {/* Create Account Button */}
 
             <Pressable
               accessibilityRole="button"
@@ -437,12 +668,12 @@ export default function LoginScreen({
                 loading
               }
               onPress={
-                handleLogin
+                handleSignUp
               }
               style={({
                 pressed,
               }) => [
-                styles.loginButton,
+                styles.signUpButton,
 
                 loading &&
                   styles.disabledButton,
@@ -454,12 +685,12 @@ export default function LoginScreen({
             >
               <Text
                 style={
-                  styles.loginButtonText
+                  styles.signUpButtonText
                 }
               >
                 {loading
-                  ? 'Logging in...'
-                  : 'Login'}
+                  ? 'Creating Account...'
+                  : 'Create Account'}
               </Text>
 
               {!loading && (
@@ -474,19 +705,19 @@ export default function LoginScreen({
             </Pressable>
           </View>
 
-          {/* Sign Up */}
+          {/* Login Link */}
 
           <View
             style={
-              styles.signUpContainer
+              styles.loginContainer
             }
           >
             <Text
               style={
-                styles.signUpPrompt
+                styles.loginPrompt
               }
             >
-              Don't have an account?{' '}
+              Already have an account?{' '}
             </Text>
 
             <Pressable
@@ -494,8 +725,8 @@ export default function LoginScreen({
                 loading
               }
               onPress={() =>
-                navigation.navigate(
-                  'SignUp',
+                navigation.replace(
+                  'Login',
                   {
                     role,
                   },
@@ -504,10 +735,10 @@ export default function LoginScreen({
             >
               <Text
                 style={
-                  styles.signUpLink
+                  styles.loginLink
                 }
               >
-                Sign Up
+                Login
               </Text>
             </Pressable>
           </View>
@@ -519,7 +750,9 @@ export default function LoginScreen({
               loading
             }
             onPress={() =>
-              navigation.goBack()
+              navigation.navigate(
+                'RoleSelection',
+              )
             }
           >
             <Text
@@ -621,6 +854,9 @@ StyleSheet.create({
 
     fontWeight:
       '800',
+
+    textAlign:
+      'center',
   },
 
   subtitle: {
@@ -632,6 +868,9 @@ StyleSheet.create({
 
     textAlign:
       'center',
+
+    lineHeight:
+      20,
   },
 
   roleBadge: {
@@ -747,6 +986,14 @@ StyleSheet.create({
       12,
   },
 
+  passwordHint: {
+    color:
+      '#58717F',
+
+    fontSize:
+      11,
+  },
+
   errorContainer: {
     flexDirection:
       'row',
@@ -787,7 +1034,7 @@ StyleSheet.create({
       18,
   },
 
-  loginButton: {
+  signUpButton: {
     minHeight:
       52,
 
@@ -810,7 +1057,7 @@ StyleSheet.create({
       8,
   },
 
-  loginButtonText: {
+  signUpButtonText: {
     color:
       '#FFFFFF',
 
@@ -831,7 +1078,7 @@ StyleSheet.create({
       0.75,
   },
 
-  signUpContainer: {
+  loginContainer: {
     flexDirection:
       'row',
 
@@ -845,7 +1092,7 @@ StyleSheet.create({
       'wrap',
   },
 
-  signUpPrompt: {
+  loginPrompt: {
     color:
       '#58717F',
 
@@ -853,7 +1100,7 @@ StyleSheet.create({
       13,
   },
 
-  signUpLink: {
+  loginLink: {
     color:
       '#087F80',
 

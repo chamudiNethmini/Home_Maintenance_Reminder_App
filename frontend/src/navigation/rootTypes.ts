@@ -1,6 +1,14 @@
-import type { NavigatorScreenParams } from '@react-navigation/native';
-import type { ProviderStackParams } from './providerTypes';
-import type { TechnicianStackParamList } from './technicianTypes';
+import type {
+  NavigatorScreenParams,
+} from '@react-navigation/native';
+
+import type {
+  ProviderStackParams,
+} from './providerTypes';
+
+import type {
+  TechnicianStackParamList,
+} from './technicianTypes';
 
 export type UserRole =
   | 'homeowner'
@@ -8,13 +16,21 @@ export type UserRole =
   | 'provider';
 
 export type RootStackParamList = {
-  RoleSelection: undefined;
+  RoleSelection:
+    undefined;
 
   Login: {
-    role: UserRole;
+    role:
+      UserRole;
   };
 
-  HomeownerDashboard: undefined;
+  SignUp: {
+    role:
+      UserRole;
+  };
+
+  HomeownerDashboard:
+    undefined;
 
   TechnicianDashboard:
     NavigatorScreenParams<TechnicianStackParamList>;

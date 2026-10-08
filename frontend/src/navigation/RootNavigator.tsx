@@ -1,34 +1,60 @@
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import {
+  createNativeStackNavigator,
+} from '@react-navigation/native-stack';
 
-import RoleSelectionScreen from '../screens/auth/RoleSelectionScreen';
-import LoginScreen from '../screens/auth/LoginScreen';
+import RoleSelectionScreen
+  from '../screens/auth/RoleSelectionScreen';
 
-import HomeownerNavigator from './HomeownerNavigator';
-import ProviderNavigator from './ProviderNavigator';
-import TechnicianNavigator from './TechnicianNavigator';
+import LoginScreen
+  from '../screens/auth/LoginScreen';
 
-import { useAuth } from '../components/auth/AuthContext';
+import SignUpScreen
+  from '../screens/auth/SignUpScreen';
+
+import HomeownerNavigator
+  from './HomeownerNavigator';
+
+import ProviderNavigator
+  from './ProviderNavigator';
+
+import TechnicianNavigator
+  from './TechnicianNavigator';
+
+import {
+  useAuth,
+} from '../components/auth/AuthContext';
 
 import {
   ProviderModuleProvider,
 } from '../components/provider/ProviderContext';
 
-import type { RootStackParamList } from './rootTypes';
+import type {
+  RootStackParamList,
+} from './rootTypes';
 
 const Stack =
   createNativeStackNavigator<RootStackParamList>();
 
 function ProviderFlow() {
-  const { user } = useAuth();
+  const {
+    user,
+  } = useAuth();
 
-  if (user?.role !== 'provider') {
+  if (
+    user?.role !==
+    'provider'
+  ) {
     return null;
   }
 
   return (
     <ProviderModuleProvider
-      key={user.uid}
-      authenticatedProviderId={user.uid}
+      key={
+        user.uid
+      }
+      authenticatedProviderId={
+        user.uid
+      }
     >
       <ProviderNavigator />
     </ProviderModuleProvider>
@@ -36,43 +62,73 @@ function ProviderFlow() {
 }
 
 export default function RootNavigator() {
-  const { user } = useAuth();
+  const {
+    user,
+  } = useAuth();
 
   return (
     <Stack.Navigator
       screenOptions={{
-        headerShown: false,
+        headerShown:
+          false,
       }}
     >
       {!user ? (
-        <Stack.Group navigationKey="signed-out">
+        <Stack.Group
+          navigationKey="signed-out"
+        >
           <Stack.Screen
             name="RoleSelection"
-            component={RoleSelectionScreen}
+            component={
+              RoleSelectionScreen
+            }
           />
 
           <Stack.Screen
             name="Login"
-            component={LoginScreen}
+            component={
+              LoginScreen
+            }
+          />
+
+          <Stack.Screen
+            name="SignUp"
+            component={
+              SignUpScreen
+            }
           />
         </Stack.Group>
-      ) : user.role === 'provider' ? (
+      ) : user.role ===
+        'provider' ? (
         <Stack.Screen
-          navigationKey={user.uid}
+          navigationKey={
+            user.uid
+          }
           name="ProviderFlow"
-          component={ProviderFlow}
+          component={
+            ProviderFlow
+          }
         />
-      ) : user.role === 'homeowner' ? (
+      ) : user.role ===
+        'homeowner' ? (
         <Stack.Screen
-          navigationKey={user.uid}
+          navigationKey={
+            user.uid
+          }
           name="HomeownerDashboard"
-          component={HomeownerNavigator}
+          component={
+            HomeownerNavigator
+          }
         />
       ) : (
         <Stack.Screen
-          navigationKey={user.uid}
+          navigationKey={
+            user.uid
+          }
           name="TechnicianDashboard"
-          component={TechnicianNavigator}
+          component={
+            TechnicianNavigator
+          }
         />
       )}
     </Stack.Navigator>

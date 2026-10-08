@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-
 import {
   SafeAreaView,
   View,
@@ -131,55 +130,6 @@ export default function RepairHistoryScreen() {
             </View>
           </View>
 
-          {/* Appliance Information */}
-          <View style={styles.applianceCard}>
-
-            <View style={styles.applianceIcon}>
-              <Text style={styles.applianceEmoji}>
-                🧺
-              </Text>
-            </View>
-
-            <View style={styles.applianceDetails}>
-              <Text style={styles.cardTitle}>
-                Appliance Information
-              </Text>
-
-              <Text style={styles.applianceName}>
-                Washing Machine
-              </Text>
-
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>
-                  Model
-                </Text>
-
-                <Text style={styles.colon}>
-                  :
-                </Text>
-
-                <Text style={styles.infoValue}>
-                  Samsung
-                </Text>
-              </View>
-
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>
-                  Serial Number
-                </Text>
-
-                <Text style={styles.colon}>
-                  :
-                </Text>
-
-                <Text style={styles.infoValue}>
-                  W88910
-                </Text>
-              </View>
-            </View>
-
-          </View>
-
           {/* Section Title */}
           <Text style={styles.historySectionTitle}>
             Completed Repairs
@@ -263,71 +213,12 @@ export default function RepairHistoryScreen() {
           ))}
 
         </ScrollView>
-
-        {/* Bottom Navigation */}
-        <View style={styles.bottomNavigation}>
-
-          {/* Home */}
-          <Pressable
-            style={styles.navItem}
-            onPress={() =>
-              navigation.navigate(
-                'TechnicianDashboard',
-              )
-            }
-          >
-            <Text style={styles.navIconInactive}>
-              ⌂
-            </Text>
-
-            <Text style={styles.navText}>
-              Home
-            </Text>
-          </Pressable>
-
-          {/* Requests */}
-          <Pressable
-            style={styles.navItem}
-            onPress={() =>
-              navigation.navigate(
-                'ServiceRequests',
-              )
-            }
-          >
-            <Text style={styles.navIconInactive}>
-              🗓️
-            </Text>
-
-            <Text style={styles.navText}>
-              Requests
-            </Text>
-          </Pressable>
-
-          {/* History - Active */}
-          <View
-            style={[
-              styles.navItem,
-              styles.activeNavItem,
-            ]}
-          >
-            <Text style={styles.navIcon}>
-              📋
-            </Text>
-
-            <Text style={styles.activeNavText}>
-              History
-            </Text>
-          </View>
-
-        </View>
-
       </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-
   safeArea: {
     flex: 1,
     backgroundColor: '#F4F6F7',
@@ -335,14 +226,13 @@ const styles = StyleSheet.create({
 
   container: {
     flex: 1,
-    backgroundColor: '#F2FFFD',
+    backgroundColor: '#F4F8FA',
     maxWidth: 500,
     width: '100%',
     alignSelf: 'center',
   },
 
   /* Header */
-
   header: {
     backgroundColor: '#FFFFFF',
     minHeight: 92,
@@ -384,7 +274,6 @@ const styles = StyleSheet.create({
   },
 
   /* Content */
-
   scrollView: {
     flex: 1,
   },
@@ -395,7 +284,6 @@ const styles = StyleSheet.create({
   },
 
   /* Page Header */
-
   pageHeader: {
     minHeight: 72,
     flexDirection: 'row',
@@ -432,77 +320,7 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
 
-  /* Appliance Card */
-
-  applianceCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#DEE8ED',
-    padding: 18,
-    flexDirection: 'row',
-    marginBottom: 20,
-  },
-
-  applianceIcon: {
-    width: 58,
-    height: 70,
-    borderRadius: 12,
-    backgroundColor: '#F1F9F9',
-    borderWidth: 1,
-    borderColor: '#DEE8ED',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 15,
-  },
-
-  applianceEmoji: {
-    fontSize: 30,
-  },
-
-  applianceDetails: {
-    flex: 1,
-  },
-
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#103851',
-    marginBottom: 5,
-  },
-
-  applianceName: {
-    fontSize: 14,
-    color: '#58717F',
-    marginBottom: 5,
-  },
-
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
-  },
-
-  infoLabel: {
-    width: 100,
-    fontSize: 13,
-    color: '#58717F',
-  },
-
-  colon: {
-    width: 18,
-    fontSize: 13,
-    color: '#58717F',
-  },
-
-  infoValue: {
-    fontSize: 13,
-    color: '#58717F',
-    flex: 1,
-  },
-
   /* History */
-
   historySectionTitle: {
     fontSize: 18,
     fontWeight: '700',
@@ -571,7 +389,6 @@ const styles = StyleSheet.create({
   },
 
   /* Loading */
-
   loadingContainer: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -585,7 +402,6 @@ const styles = StyleSheet.create({
   },
 
   /* Error */
-
   errorBox: {
     backgroundColor: '#FFF1F1',
     borderWidth: 1,
@@ -602,7 +418,6 @@ const styles = StyleSheet.create({
   },
 
   /* Empty */
-
   emptyCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 18,
@@ -630,52 +445,4 @@ const styles = StyleSheet.create({
     color: '#58717F',
     textAlign: 'center',
   },
-
-  /* Bottom Navigation */
-
-  bottomNavigation: {
-    height: 105,
-    backgroundColor: '#FFFFFF',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    borderTopLeftRadius: 25,
-    borderTopRightRadius: 25,
-  },
-
-  navItem: {
-    width: 110,
-    height: 85,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 25,
-  },
-
-  activeNavItem: {
-    backgroundColor: '#E1F6FC',
-  },
-
-  navIcon: {
-    fontSize: 35,
-    color: '#25A9CD',
-  },
-
-  navIconInactive: {
-    fontSize: 31,
-    color: '#777777',
-  },
-
-  activeNavText: {
-    color: '#25A9CD',
-    fontSize: 17,
-    fontWeight: '600',
-    marginTop: 3,
-  },
-
-  navText: {
-    color: '#6B7280',
-    fontSize: 17,
-    marginTop: 3,
-  },
-
 });

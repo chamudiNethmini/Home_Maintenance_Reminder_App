@@ -65,8 +65,11 @@ function getApplianceIcon(
     return '🧺';
   }
 
-  if (name.includes('refrigerator')) {
-    return '▯';
+  if (
+    name.includes('refrigerator') ||
+    name.includes('fridge')
+  ) {
+    return '🧊';
   }
 
   if (
@@ -74,6 +77,63 @@ function getApplianceIcon(
     name.includes('ac')
   ) {
     return '❄️';
+  }
+
+  if (
+    name.includes('television') ||
+    name.includes('tv')
+  ) {
+    return '📺';
+  }
+
+  if (name.includes('microwave')) {
+    return '🍽️';
+  }
+
+  if (name.includes('oven')) {
+    return '🔥';
+  }
+
+  if (name.includes('dishwasher')) {
+    return '🍽️';
+  }
+
+  if (name.includes('dryer')) {
+    return '👕';
+  }
+
+  if (
+    name.includes('water heater') ||
+    name.includes('heater')
+  ) {
+    return '♨️';
+  }
+
+  if (name.includes('fan')) {
+    return '🌀';
+  }
+
+  if (name.includes('vacuum')) {
+    return '🧹';
+  }
+
+  if (
+    name.includes('stove') ||
+    name.includes('cooker')
+  ) {
+    return '🍳';
+  }
+
+  if (name.includes('iron')) {
+    return '👔';
+  }
+
+  if (name.includes('coffee')) {
+    return '☕';
+  }
+
+  if (name.includes('blender')) {
+    return '🥤';
   }
 
   return '🔧';

@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
+  Alert,
+  Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -9,6 +11,14 @@ import {
   View,
 } from 'react-native';
 
+import type {
+  HomeownerScreenProps,
+} from '../../navigation/homeownerTypes';
+
+import {
+  saveHomeownerReminder,
+} from '../../services/homeownerReminderService';
+
 const reminderOptions = [
   '1 month before expiry',
   '3 months before expiry',
@@ -16,11 +26,212 @@ const reminderOptions = [
   'On expiry date',
 ];
 
-export default function SetExpiryReminderScreen() {
+export default function SetExpiryReminderScreen({
+  route,
+  navigation,
+}: HomeownerScreenProps<'SetExpiryReminder'>) {
   const [selectedReminder, setSelectedReminder] =
     useState('1 month before expiry');
-  const [pushNotification, setPushNotification] = useState(true);
-  const [emailNotification, setEmailNotification] = useState(false);
+
+  const [pushNotification, setPushNotification] =
+    useState(true);
+
+  const [emailNotification, setEmailNotification] =
+    useState(false);
+
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+
+  const prepareDemoSound = (): AudioContext | null => {
+    if (Platform.OS !== 'web') {
+      return null;
+    }
+
+    try {
+      const audioContext = new window.AudioContext();
+
+      // Enable audio during the Save button click.
+      void audioContext.resume().catch(() => {});
+
+      return audioContext;
+    } catch {
+      return null;
+    }
+  };
+
+  const startDemoReminder = (
+    audioContext: AudioContext | null,
+    applianceName: string,
+  ) => {
+    if (Platform.OS !== 'web') {
+      return;
+    }
+
+    window.setTimeout(() => {
+      const showDemoPopup = () => {
+        window.alert(
+          '🔔 Demo Warranty Reminder\n\n' +
+            `${applianceName}: Your warranty expiry reminder is due.`,
+        );
+      };
+
+      void (async () => {
+        if (!audioContext) {
+          showDemoPopup();
+          return;
+        }
+
+        try {
+          await audioContext.resume();
+
+          if (audioContext.state !== 'running') {
+            void audioContext.close().catch(() => {});
+            showDemoPopup();
+            return;
+          }
+
+          const oscillator =
+            audioContext.createOscillator();
+
+          const volume = audioContext.createGain();
+
+          oscillator.type = 'sine';
+          oscillator.frequency.value = 880;
+
+          const now = audioContext.currentTime;
+
+          volume.gain.setValueAtTime(0, now);
+          volume.gain.linearRampToValueAtTime(
+            0.2,
+            now + 0.03,
+          );
+          volume.gain.setValueAtTime(
+            0.2,
+            now + 0.5,
+          );
+          volume.gain.linearRampToValueAtTime(
+            0,
+            now + 0.6,
+          );
+
+          oscillator.connect(volume);
+          volume.connect(audioContext.destination);
+
+          oscillator.onended = () => {
+            oscillator.disconnect();
+            volume.disconnect();
+
+            void audioContext.close().catch(() => {});
+            showDemoPopup();
+          };
+
+          oscillator.start(now);
+          oscillator.stop(now + 0.65);
+        } catch {
+          void audioContext.close().catch(() => {});
+          showDemoPopup();
+        }
+      })();
+    }, 8000);
+  };
+
+  const handleSaveReminder = async () => {
+    if (savingRef.current) {
+      return;
+    }
+
+    if (!pushNotification && !emailNotification) {
+      const message =
+        'Please select at least one notification method.';
+
+      if (Platform.OS === 'web') {
+        window.alert(message);
+      } else {
+        Alert.alert(
+          'Notification method required',
+          message,
+        );
+      }
+
+      return;
+    }
+
+    const applianceName = route.params.applianceName;
+    const demoEnabled =
+      Platform.OS === 'web' && pushNotification;
+
+    const audioContext = demoEnabled
+      ? prepareDemoSound()
+      : null;
+
+    savingRef.current = true;
+    setSaving(true);
+
+    try {
+      await saveHomeownerReminder({
+        applianceId: route.params.applianceId,
+        option: selectedReminder,
+        pushNotification,
+        emailNotification,
+      });
+
+      const message =
+        `Reminder settings saved for ${applianceName}.\n` +
+        selectedReminder;
+
+      if (Platform.OS === 'web') {
+        window.alert(
+          message +
+            (demoEnabled
+              ? '\n\nDemo alert will appear 8 seconds after clicking OK.'
+              : ''),
+        );
+
+        navigation.navigate('Notifications');
+
+        if (demoEnabled) {
+          startDemoReminder(
+            audioContext,
+            applianceName,
+          );
+        }
+      } else {
+        Alert.alert(
+          'Reminder saved',
+          message,
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                navigation.navigate('Notifications');
+              },
+            },
+          ],
+          {
+            cancelable: false,
+          },
+        );
+      }
+    } catch (error) {
+      if (audioContext) {
+        void audioContext.close().catch(() => {});
+      }
+
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Could not save the reminder. Please try again.';
+
+      if (Platform.OS === 'web') {
+        window.alert(message);
+      } else {
+        Alert.alert('Save failed', message);
+      }
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -29,35 +240,47 @@ export default function SetExpiryReminderScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Pressable style={styles.backButton}>
+          <Pressable
+            style={styles.backButton}
+            disabled={saving}
+            onPress={() => navigation.goBack()}
+          >
             <Text style={styles.backText}>‹</Text>
           </Pressable>
 
-          <Text style={styles.title}>Set Expiry Reminder</Text>
+          <Text style={styles.title}>
+            Set Expiry Reminder
+          </Text>
+
           <Text style={styles.headerIcon}>♧</Text>
         </View>
 
         <View style={styles.applianceCard}>
           <Text style={styles.applianceName}>
-            Samsung Refrigerator
+            {route.params.applianceName}
           </Text>
+
           <Text style={styles.expiryText}>
-            Expires 15 Mar 2028
+            Expires {route.params.expiry}
           </Text>
         </View>
 
-        <Text style={styles.sectionTitle}>Reminder options</Text>
+        <Text style={styles.sectionTitle}>
+          Reminder options
+        </Text>
 
         {reminderOptions.map((option) => (
           <Pressable
             key={option}
+            disabled={saving}
             onPress={() => setSelectedReminder(option)}
             style={styles.optionRow}
           >
             <View
               style={[
                 styles.radio,
-                selectedReminder === option && styles.radioSelected,
+                selectedReminder === option &&
+                  styles.radioSelected,
               ]}
             >
               {selectedReminder === option && (
@@ -65,42 +288,88 @@ export default function SetExpiryReminderScreen() {
               )}
             </View>
 
-            <Text style={styles.optionText}>{option}</Text>
+            <Text style={styles.optionText}>
+              {option}
+            </Text>
           </Pressable>
         ))}
 
-        <Text style={styles.sectionTitle}>Notification method</Text>
+        <Text style={styles.sectionTitle}>
+          Notification method
+        </Text>
 
         <View style={styles.switchRow}>
-          <Text style={styles.switchText}>Push Notification</Text>
+          <Text style={styles.switchText}>
+            Push Notification
+          </Text>
+
           <Switch
             value={pushNotification}
+            disabled={saving}
             onValueChange={setPushNotification}
-            trackColor={{ false: '#DEE8ED', true: '#8ED6E5' }}
-            thumbColor={pushNotification ? '#0EA5C6' : '#FFFFFF'}
+            trackColor={{
+              false: '#DEE8ED',
+              true: '#8ED6E5',
+            }}
+            thumbColor={
+              pushNotification
+                ? '#0EA5C6'
+                : '#FFFFFF'
+            }
           />
         </View>
 
         <View style={styles.switchRow}>
-          <Text style={styles.switchText}>Email Notification</Text>
+          <Text style={styles.switchText}>
+            Email Notification
+          </Text>
+
           <Switch
             value={emailNotification}
+            disabled={saving}
             onValueChange={setEmailNotification}
-            trackColor={{ false: '#DEE8ED', true: '#8ED6E5' }}
-            thumbColor={emailNotification ? '#0EA5C6' : '#FFFFFF'}
+            trackColor={{
+              false: '#DEE8ED',
+              true: '#8ED6E5',
+            }}
+            thumbColor={
+              emailNotification
+                ? '#0EA5C6'
+                : '#FFFFFF'
+            }
           />
         </View>
 
-        <Pressable style={styles.saveButton}>
-          <Text style={styles.saveText}>Save Reminder</Text>
+        <Pressable
+          style={styles.saveButton}
+          disabled={saving}
+          onPress={handleSaveReminder}
+        >
+          <Text style={styles.saveText}>
+            {saving ? 'Saving...' : 'Save Reminder'}
+          </Text>
         </Pressable>
       </ScrollView>
 
       <View style={styles.bottomBar}>
-        <Text style={styles.bottomItem}>⌂{'\n'}Home</Text>
-        <Text style={styles.bottomItem}>▦{'\n'}Appliances</Text>
-        <Text style={styles.bottomItem}>□{'\n'}Calendar</Text>
-        <Text style={[styles.bottomItem, styles.activeBottomItem]}>
+        <Text style={styles.bottomItem}>
+          ⌂{'\n'}Home
+        </Text>
+
+        <Text style={styles.bottomItem}>
+          ▦{'\n'}Appliances
+        </Text>
+
+        <Text style={styles.bottomItem}>
+          □{'\n'}Calendar
+        </Text>
+
+        <Text
+          style={[
+            styles.bottomItem,
+            styles.activeBottomItem,
+          ]}
+        >
           ♙{'\n'}Profile
         </Text>
       </View>

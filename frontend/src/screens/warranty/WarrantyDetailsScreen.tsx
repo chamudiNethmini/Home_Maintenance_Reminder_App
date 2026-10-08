@@ -1,5 +1,9 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
+
 import {
+  Alert,
+  Linking,
+  Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -8,7 +12,139 @@ import {
   View,
 } from 'react-native';
 
-export default function WarrantyDetailsScreen() {
+import { useFocusEffect } from '@react-navigation/native';
+
+import {
+  collection,
+  getDocs,
+  query,
+  where,
+} from 'firebase/firestore';
+
+import { auth, db } from '../../config/firebase';
+
+import type {
+  HomeownerScreenProps,
+} from '../../navigation/homeownerTypes';
+
+type WarrantyFile = {
+  id: string;
+  fileName: string;
+  fileUrl: string;
+};
+
+function showMessage(title: string, message: string) {
+  if (Platform.OS === 'web') {
+    window.alert(`${title}\n\n${message}`);
+  } else {
+    Alert.alert(title, message);
+  }
+}
+
+export default function WarrantyDetailsScreen({
+  route,
+  navigation,
+}: HomeownerScreenProps<'WarrantyDetails'>) {
+  const [documents, setDocuments] = useState<WarrantyFile[]>([]);
+  const [loadingDocuments, setLoadingDocuments] = useState(true);
+  const [documentError, setDocumentError] = useState('');
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+
+      const loadDocuments = async () => {
+        setLoadingDocuments(true);
+        setDocumentError('');
+        setDocuments([]);
+
+        try {
+          const user = auth.currentUser;
+
+          if (!user) {
+            throw new Error('Please log in first.');
+          }
+
+          const customerId = user.uid;
+
+          const warrantyQuery = query(
+            collection(db, 'homeownerWarranties'),
+            where('customerId', '==', customerId),
+            where('applianceId', '==', route.params.applianceId),
+          );
+
+          const snapshot = await getDocs(warrantyQuery);
+
+          if (!active || auth.currentUser?.uid !== customerId) {
+            return;
+          }
+
+          if (snapshot.empty) {
+            throw new Error('Warranty record was not found.');
+          }
+
+          if (snapshot.size > 1) {
+            throw new Error(
+              'Multiple warranty records exist for this appliance. Please check the records.',
+            );
+          }
+
+          const data = snapshot.docs[0].data();
+          const storedFiles: unknown[] = Array.isArray(data.documents)
+            ? data.documents
+            : [];
+
+          const files: WarrantyFile[] = [];
+
+          storedFiles.forEach((value, index) => {
+            if (!value || typeof value !== 'object') return;
+
+            const file = value as Record<string, unknown>;
+
+            if (
+              typeof file.fileUrl !== 'string' ||
+              !file.fileUrl.startsWith('https://')
+            ) {
+              return;
+            }
+
+            files.push({
+              id:
+                typeof file.id === 'string'
+                  ? file.id
+                  : `document_${index}`,
+              fileName:
+                typeof file.fileName === 'string'
+                  ? file.fileName
+                  : `Document ${index + 1}`,
+              fileUrl: file.fileUrl,
+            });
+          });
+
+          setDocuments(files);
+        } catch (cause) {
+          if (active) {
+            setDocumentError(
+              cause instanceof Error
+                ? cause.message
+                : 'Could not load documents.',
+            );
+          }
+        } finally {
+          if (active) {
+            setLoadingDocuments(false);
+          }
+        }
+      };
+
+      void loadDocuments();
+
+      return () => {
+        active = false;
+      };
+    }, [route.params.applianceId]),
+  );
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView
@@ -16,7 +152,10 @@ export default function WarrantyDetailsScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Pressable style={styles.backButton}>
+          <Pressable
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
             <Text style={styles.backText}>‹</Text>
           </Pressable>
 
@@ -26,37 +165,98 @@ export default function WarrantyDetailsScreen() {
 
         <View style={styles.applianceCard}>
           <View style={styles.applianceIcon}>
-            <Text style={styles.applianceIconText}>▣</Text>
+            <Text style={styles.applianceIconText}>
+              {route.params.icon}
+            </Text>
           </View>
 
           <View style={styles.applianceInfo}>
-            <Text style={styles.applianceName}>Samsung Refrigerator</Text>
-            <Text style={styles.model}>Samsung • RT38</Text>
+            <Text style={styles.applianceName}>
+              {route.params.name}
+            </Text>
+
+            <Text style={styles.model}>
+              {route.params.model}
+            </Text>
           </View>
 
           <View style={styles.activeBadge}>
-            <Text style={styles.activeText}>Active</Text>
+            <Text style={styles.activeText}>
+              {route.params.status}
+            </Text>
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>Warranty Information</Text>
+        <Text style={styles.sectionTitle}>
+          Warranty Information
+        </Text>
 
-        <InfoRow label="Purchase Date" value="15 Mar 2026" />
-        <InfoRow label="Warranty Period" value="2 Years" />
-        <InfoRow label="Expiry Date" value="15 Mar 2028" />
+        <InfoRow
+          label="Purchase Date"
+          value={route.params.purchaseDate}
+        />
+
+        <InfoRow
+          label="Warranty Period"
+          value={route.params.warrantyPeriod}
+        />
+
+        <InfoRow
+          label="Expiry Date"
+          value={route.params.expiry}
+        />
 
         <Text style={styles.sectionTitle}>Documents</Text>
 
-        <DocumentRow title="Warranty Card" />
-        <DocumentRow title="Purchase Receipt" />
+        {loadingDocuments ? (
+          <Text style={styles.infoLabel}>Loading documents...</Text>
+        ) : documentError ? (
+          <Text style={styles.infoLabel}>{documentError}</Text>
+        ) : documents.length === 0 ? (
+          <Text style={styles.infoLabel}>
+            No documents uploaded for this warranty.
+          </Text>
+        ) : (
+          documents.map((document) => (
+            <DocumentRow
+              key={document.id}
+              title={document.fileName}
+              uri={document.fileUrl}
+            />
+          ))
+        )}
 
-        <Pressable style={styles.editButton}>
+        <Pressable
+          style={styles.editButton}
+          onPress={() => {
+            navigation.navigate('AddWarranty', {
+              applianceId: route.params.applianceId,
+              applianceName: route.params.name,
+              brand: route.params.brand,
+              model: route.params.model,
+              serialNumber: route.params.serialNumber,
+              purchaseDate: route.params.purchaseDate,
+              mode: 'edit',
+            });
+          }}
+        >
           <Text style={styles.editButtonText}>Edit Warranty</Text>
         </Pressable>
 
-        <Pressable style={styles.reminderButton}>
-          <Text style={styles.reminderButtonText}>Set Expiry Reminder</Text>
-        </Pressable>
+    <Pressable
+  style={styles.reminderButton}
+  onPress={() => {
+    navigation.navigate('SetExpiryReminder', {
+      applianceId: route.params.applianceId,
+      applianceName: route.params.name,
+      expiry: route.params.expiry,
+    });
+  }}
+>
+  <Text style={styles.reminderButtonText}>
+    Set Expiry Reminder
+  </Text>
+</Pressable>
       </ScrollView>
 
       <View style={styles.bottomBar}>
@@ -71,7 +271,13 @@ export default function WarrantyDetailsScreen() {
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
+function InfoRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
   return (
     <View style={styles.infoRow}>
       <Text style={styles.infoLabel}>{label}</Text>
@@ -80,12 +286,52 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function DocumentRow({ title }: { title: string }) {
+function DocumentRow({
+  title,
+  uri,
+}: {
+  title: string;
+  uri: string;
+}) {
+  const handleView = async () => {
+    try {
+      if (Platform.OS === 'web') {
+        const opened = window.open(
+          uri,
+          '_blank',
+          'noopener,noreferrer',
+        );
+
+        // Some browsers return null even when the tab opens.
+        // Do not treat that return value as an upload failure.
+        void opened;
+      } else {
+        await Linking.openURL(uri);
+      }
+    } catch {
+      showMessage(
+        'Could not open document',
+        'Please try again.',
+      );
+    }
+  };
+
   return (
     <View style={styles.documentRow}>
       <Text style={styles.documentIcon}>▧</Text>
-      <Text style={styles.documentTitle}>{title}</Text>
-      <Pressable>
+
+      <Text style={styles.documentTitle} numberOfLines={1}>
+        {title}
+      </Text>
+
+      <Pressable
+        onPress={() => {
+          void handleView();
+        }}
+        accessibilityRole="button"
+        accessibilityLabel={`View ${title}`}
+        hitSlop={10}
+      >
         <Text style={styles.viewText}>View</Text>
       </Pressable>
     </View>

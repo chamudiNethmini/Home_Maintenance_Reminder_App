@@ -1672,12 +1672,9 @@ export default function HomeownerDashboardScreen({
 
             }
 
-            onPress={() => {
-
-              // Warranty module navigation will be connected
-              // by the member responsible for that module.
-
-            }}
+  onPress={() => {
+  navigation.navigate('MyWarranty');
+}}
 
           >
 

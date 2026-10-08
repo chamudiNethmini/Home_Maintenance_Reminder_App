@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   Pressable,
   SafeAreaView,
@@ -9,52 +9,251 @@ import {
   View,
 } from 'react-native';
 
+import { useFocusEffect } from '@react-navigation/native';
+import {
+  collection,
+  getDocs,
+  query,
+  where,
+} from 'firebase/firestore';
+
+import { db } from '../../config/firebase';
+import { useAuth } from '../../components/auth/AuthContext';
+import {
+  getHomeownerAppliances,
+} from '../../services/homeownerApplianceService';
+
+import type {
+  HomeownerScreenProps,
+} from '../../navigation/homeownerTypes';
+
 type WarrantyStatus = 'Active' | 'Expiring Soon' | 'Expired';
 
-type Warranty = {
+type WarrantyItem = {
+  warrantyId: string;
+  applianceId: string;
   name: string;
+  brand: string;
   model: string;
+  serialNumber: string;
   expiry: string;
   status: WarrantyStatus;
   icon: string;
+  purchaseDate: string;
+  warrantyPeriod: string;
 };
-
-const warranties: Warranty[] = [
-  {
-    name: 'Samsung Refrigerator',
-    model: 'Model RT38',
-    expiry: 'Expires 15 Mar 2028',
-    status: 'Active',
-    icon: '▣',
-  },
-  {
-    name: 'LG Washing Machine',
-    model: 'Model FHT207',
-    expiry: 'Expires 20 Oct 2026',
-    status: 'Expiring Soon',
-    icon: '▥',
-  },
-  {
-    name: 'Sony TV',
-    model: 'Model KD-55X80',
-    expiry: 'Expired 10 Jan 2024',
-    status: 'Expired',
-    icon: '▤',
-  },
-];
 
 const filters = ['All', 'Active', 'Expiring', 'Expired'] as const;
 
-export default function MyWarrantyScreen() {
+function parseDate(value: string): Date {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
+
+  if (!match) {
+    throw new Error('A saved warranty has an invalid date.');
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(year, month - 1, day);
+
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    throw new Error('A saved warranty has an invalid date.');
+  }
+
+  return date;
+}
+
+function displayDate(date: Date): string {
+  return date.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+function calculateStatus(expiry: Date): WarrantyStatus {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  if (expiry < today) return 'Expired';
+
+  const threshold = new Date(today);
+  threshold.setDate(threshold.getDate() + 30);
+
+  return expiry <= threshold ? 'Expiring Soon' : 'Active';
+}
+
+function calculatePeriod(purchase: Date, expiry: Date): string {
+  const months =
+    (expiry.getFullYear() - purchase.getFullYear()) * 12 +
+    expiry.getMonth() -
+    purchase.getMonth();
+
+  if (expiry.getDate() === purchase.getDate() && months > 0) {
+    if (months % 12 === 0) {
+      const years = months / 12;
+      return `${years} ${years === 1 ? 'Year' : 'Years'}`;
+    }
+
+    return `${months} ${months === 1 ? 'Month' : 'Months'}`;
+  }
+
+  const start = Date.UTC(
+    purchase.getFullYear(),
+    purchase.getMonth(),
+    purchase.getDate(),
+  );
+
+  const end = Date.UTC(
+    expiry.getFullYear(),
+    expiry.getMonth(),
+    expiry.getDate(),
+  );
+
+  const days = Math.round((end - start) / 86400000);
+  return `${days} ${days === 1 ? 'Day' : 'Days'}`;
+}
+
+export default function MyWarrantyScreen({
+  navigation,
+}: HomeownerScreenProps<'MyWarranty'>) {
+  const { user } = useAuth();
+
+  const [warranties, setWarranties] = useState<WarrantyItem[]>([]);
   const [selectedFilter, setSelectedFilter] =
     useState<(typeof filters)[number]>('All');
   const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+
+      setLoading(true);
+      setError('');
+      setWarranties([]);
+
+      const loadWarranties = async () => {
+        try {
+          if (!user?.uid) {
+            throw new Error('Please log in to view warranties.');
+          }
+
+          const [appliances, warrantySnapshot] = await Promise.all([
+            getHomeownerAppliances(),
+            getDocs(
+              query(
+                collection(db, 'homeownerWarranties'),
+                where('customerId', '==', user.uid),
+              ),
+            ),
+          ]);
+
+          const applianceMap = new Map(
+            appliances.map((appliance) => [
+              appliance.id,
+              appliance,
+            ] as const),
+          );
+
+          const items: WarrantyItem[] = [];
+
+          for (const document of warrantySnapshot.docs) {
+            const data = document.data();
+
+            const applianceId =
+              typeof data.applianceId === 'string'
+                ? data.applianceId
+                : '';
+
+            const appliance = applianceMap.get(applianceId);
+
+            if (!appliance) continue;
+
+            const purchaseValue =
+              typeof data.purchaseDate === 'string'
+                ? data.purchaseDate
+                : appliance.purchaseDate;
+
+            const expiryValue =
+              typeof data.expiryDate === 'string'
+                ? data.expiryDate
+                : '';
+
+            const purchase = parseDate(purchaseValue);
+            const expiry = parseDate(expiryValue);
+
+            if (expiry < purchase) {
+              throw new Error(
+                `Invalid warranty dates for ${appliance.name}.`,
+              );
+            }
+
+            const savedPeriod =
+              typeof data.warrantyPeriod === 'string'
+                ? data.warrantyPeriod.trim()
+                : '';
+
+            items.push({
+              warrantyId: document.id,
+              applianceId: appliance.id,
+              name: appliance.name,
+              brand: appliance.brand,
+              model: appliance.model,
+              serialNumber: appliance.serialNumber,
+              expiry: displayDate(expiry),
+              status: calculateStatus(expiry),
+              icon:
+                appliance.category === 'Laundry'
+                  ? '▥'
+                  : appliance.category === 'Cooling'
+                    ? '▣'
+                    : '▤',
+              purchaseDate: displayDate(purchase),
+              warrantyPeriod:
+                savedPeriod || calculatePeriod(purchase, expiry),
+            });
+          }
+
+          items.sort((a, b) => a.name.localeCompare(b.name));
+
+          if (active) setWarranties(items);
+        } catch (cause) {
+          if (active) {
+            setError(
+              cause instanceof Error
+                ? cause.message
+                : 'Could not load warranties.',
+            );
+          }
+        } finally {
+          if (active) setLoading(false);
+        }
+      };
+
+      void loadWarranties();
+
+      return () => {
+        active = false;
+      };
+    }, [user?.uid, refreshKey]),
+  );
 
   const filteredWarranties = useMemo(() => {
+    const searchValue = search.trim().toLowerCase();
+
     return warranties.filter((warranty) => {
-      const matchesSearch = warranty.name
-        .toLowerCase()
-        .includes(search.toLowerCase());
+      const matchesSearch =
+        `${warranty.name} ${warranty.brand} ${warranty.model}`
+          .toLowerCase()
+          .includes(searchValue);
 
       const matchesFilter =
         selectedFilter === 'All' ||
@@ -64,16 +263,20 @@ export default function MyWarrantyScreen() {
 
       return matchesSearch && matchesFilter;
     });
-  }, [search, selectedFilter]);
+  }, [warranties, search, selectedFilter]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView
         contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
-          <Pressable style={styles.backButton}>
+          <Pressable
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
             <Text style={styles.backText}>‹</Text>
           </Pressable>
 
@@ -110,7 +313,8 @@ export default function MyWarrantyScreen() {
               <Text
                 style={[
                   styles.filterText,
-                  selectedFilter === filter && styles.selectedFilterText,
+                  selectedFilter === filter &&
+                    styles.selectedFilterText,
                 ]}
               >
                 {filter}
@@ -119,46 +323,110 @@ export default function MyWarrantyScreen() {
           ))}
         </View>
 
-        {filteredWarranties.map((warranty) => (
-          <Pressable key={warranty.name} style={styles.card}>
-            <View style={styles.applianceIcon}>
-              <Text style={styles.applianceIconText}>{warranty.icon}</Text>
-            </View>
-
-            <View style={styles.cardContent}>
-              <Text style={styles.applianceName}>{warranty.name}</Text>
-              <Text style={styles.model}>{warranty.model}</Text>
-              <Text style={styles.expiry}>{warranty.expiry}</Text>
-            </View>
-
-            <View
-              style={[
-                styles.statusBadge,
-                warranty.status === 'Active' && styles.activeBadge,
-                warranty.status === 'Expiring Soon' && styles.expiringBadge,
-                warranty.status === 'Expired' && styles.expiredBadge,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.statusText,
-                  warranty.status === 'Active' && styles.activeText,
-                  warranty.status === 'Expiring Soon' && styles.expiringText,
-                  warranty.status === 'Expired' && styles.expiredText,
-                ]}
-              >
-                {warranty.status}
-              </Text>
-            </View>
-          </Pressable>
-        ))}
-
-        {filteredWarranties.length === 0 && (
-          <Text style={styles.emptyText}>No warranties found</Text>
+        {loading && (
+          <Text style={styles.emptyText}>
+            Loading warranties...
+          </Text>
         )}
 
-        <Pressable style={styles.addButton}>
-          <Text style={styles.addButtonText}>＋ Add Warranty</Text>
+        {!!error && (
+          <View>
+            <Text style={[styles.emptyText, { color: '#E64646' }]}>
+              {error}
+            </Text>
+
+            <Pressable
+              onPress={() => setRefreshKey((value) => value + 1)}
+              style={styles.filterButton}
+            >
+              <Text style={styles.filterText}>Try Again</Text>
+            </Pressable>
+          </View>
+        )}
+
+        {!loading && !error &&
+          filteredWarranties.map((warranty) => (
+            <Pressable
+              key={warranty.warrantyId}
+              style={styles.card}
+              onPress={() => {
+                navigation.navigate('WarrantyDetails', {
+                  applianceId: warranty.applianceId,
+                  name: warranty.name,
+                  brand: warranty.brand,
+                  model: warranty.model,
+                  serialNumber: warranty.serialNumber,
+                  expiry: warranty.expiry,
+                  status: warranty.status,
+                  icon: warranty.icon,
+                  purchaseDate: warranty.purchaseDate,
+                  warrantyPeriod: warranty.warrantyPeriod,
+                });
+              }}
+            >
+              <View style={styles.applianceIcon}>
+                <Text style={styles.applianceIconText}>
+                  {warranty.icon}
+                </Text>
+              </View>
+
+              <View style={styles.cardContent}>
+                <Text style={styles.applianceName}>
+                  {warranty.name}
+                </Text>
+
+                <Text style={styles.model}>
+                  Model {warranty.model}
+                </Text>
+
+                <Text style={styles.expiry}>
+                  Expires {warranty.expiry}
+                </Text>
+              </View>
+
+              <View
+                style={[
+                  styles.statusBadge,
+                  warranty.status === 'Active' &&
+                    styles.activeBadge,
+                  warranty.status === 'Expiring Soon' &&
+                    styles.expiringBadge,
+                  warranty.status === 'Expired' &&
+                    styles.expiredBadge,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.statusText,
+                    warranty.status === 'Active' &&
+                      styles.activeText,
+                    warranty.status === 'Expiring Soon' &&
+                      styles.expiringText,
+                    warranty.status === 'Expired' &&
+                      styles.expiredText,
+                  ]}
+                >
+                  {warranty.status}
+                </Text>
+              </View>
+            </Pressable>
+          ))}
+
+        {!loading && !error && filteredWarranties.length === 0 && (
+          <Text style={styles.emptyText}>
+            {warranties.length === 0
+              ? 'No saved warranties yet. Add a warranty for your appliance.'
+              : 'No warranties found'}
+          </Text>
+        )}
+
+        <Pressable
+          style={styles.addButton}
+          onPress={() => navigation.navigate('MyAppliances')}
+        >
+          <Text style={styles.addButtonText}>
+            ＋ Add Warranty
+          </Text>
         </Pressable>
       </ScrollView>
 
@@ -340,6 +608,7 @@ const styles = StyleSheet.create({
     color: '#58717F',
     textAlign: 'center',
     marginTop: 30,
+    marginBottom: 16,
   },
   addButton: {
     height: 48,

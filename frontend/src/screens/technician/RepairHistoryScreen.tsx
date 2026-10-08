@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
 
   container: {
     flex: 1,
-    backgroundColor: '#F2FFFD',
+    backgroundColor: '#F4F8FA',
     maxWidth: 500,
     width: '100%',
     alignSelf: 'center',

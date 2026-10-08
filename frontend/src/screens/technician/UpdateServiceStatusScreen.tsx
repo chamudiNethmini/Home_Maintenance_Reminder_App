@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import {
   SafeAreaView,
@@ -35,6 +35,13 @@ import type {
   ServiceRequestStatus,
 } from '../../types/serviceRequest';
 
+import {
+  doc,
+  getDoc,
+} from 'firebase/firestore';
+
+import { db } from '../../config/firebase';
+
 type Navigation =
   NavigationProp<TechnicianStackParamList>;
 
@@ -48,6 +55,12 @@ type ServiceStatus =
   | 'Pending'
   | 'In Progress'
   | 'Completed';
+
+type ServiceRequestData = {
+  applianceId?: string;
+  applianceName?: string;
+  status?: ServiceRequestStatus;
+};
 
 export default function UpdateServiceStatusScreen() {
   const navigation =
@@ -76,11 +89,149 @@ export default function UpdateServiceStatusScreen() {
   const [errorMessage, setErrorMessage] =
     useState('');
 
+  const [serviceRequest, setServiceRequest] =
+    useState<ServiceRequestData | null>(null);
+
+  const [loadingRequest, setLoadingRequest] =
+    useState(true);
+
   const statusOptions: ServiceStatus[] = [
     'Pending',
     'In Progress',
     'Completed',
   ];
+
+  useEffect(() => {
+    async function loadServiceRequest() {
+      try {
+        setLoadingRequest(true);
+        setErrorMessage('');
+
+        const requestRef = doc(
+          db,
+          'serviceRequests',
+          serviceRequestId,
+        );
+
+        const requestSnapshot =
+          await getDoc(requestRef);
+
+        if (!requestSnapshot.exists()) {
+          setErrorMessage(
+            'Service request not found.',
+          );
+          return;
+        }
+
+        const data =
+          requestSnapshot.data() as ServiceRequestData;
+
+        setServiceRequest(data);
+
+        if (data.status === 'inProgress') {
+          setStatus('In Progress');
+        } else if (data.status === 'completed') {
+          setStatus('Completed');
+        } else {
+          setStatus('Pending');
+        }
+      } catch (error) {
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : 'Could not load service request.',
+        );
+      } finally {
+        setLoadingRequest(false);
+      }
+    }
+
+    loadServiceRequest();
+  }, [serviceRequestId]);
+
+  const getApplianceIcon = (
+    applianceName: string,
+  ) => {
+    const name =
+      applianceName.toLowerCase();
+
+    if (
+      name.includes('refrigerator') ||
+      name.includes('fridge')
+    ) {
+      return '🧊';
+    }
+
+    if (name.includes('washing')) {
+      return '🧺';
+    }
+
+    if (
+      name.includes('air conditioner') ||
+      name.includes('ac')
+    ) {
+      return '❄️';
+    }
+
+    if (
+      name.includes('television') ||
+      name.includes('tv')
+    ) {
+      return '📺';
+    }
+
+    if (name.includes('microwave')) {
+      return '🍽️';
+    }
+
+    if (name.includes('oven')) {
+      return '🔥';
+    }
+
+    if (name.includes('dishwasher')) {
+      return '🍽️';
+    }
+
+    if (name.includes('dryer')) {
+      return '👕';
+    }
+
+    if (
+      name.includes('water heater') ||
+      name.includes('heater')
+    ) {
+      return '♨️';
+    }
+
+    if (name.includes('fan')) {
+      return '🌀';
+    }
+
+    if (name.includes('vacuum')) {
+      return '🧹';
+    }
+
+    if (
+      name.includes('stove') ||
+      name.includes('cooker')
+    ) {
+      return '🍳';
+    }
+
+    if (name.includes('iron')) {
+      return '👔';
+    }
+
+    if (name.includes('coffee')) {
+      return '☕';
+    }
+
+    if (name.includes('blender')) {
+      return '🥤';
+    }
+
+    return '🔧';
+  };
 
   const handleSaveStatus = async () => {
     if (saving) {
@@ -115,12 +266,23 @@ export default function UpdateServiceStatusScreen() {
       if (status === 'Completed') {
         await addRepairHistory({
           serviceRequestId,
-          applianceId: serviceRequestId,
-          applianceName: 'Washing Machine',
+
+          applianceId:
+            serviceRequest?.applianceId ||
+            serviceRequestId,
+
+          applianceName:
+            serviceRequest?.applianceName ||
+            'Appliance',
+
           technicianId: user.uid,
+
           status: 'completed',
+
           repairNotes:
-            notes.trim() || 'Repair completed',
+            notes.trim() ||
+            'Repair completed',
+
           completedDate:
             new Date()
               .toISOString()
@@ -142,6 +304,10 @@ export default function UpdateServiceStatusScreen() {
       setSaving(false);
     }
   };
+
+  const applianceName =
+    serviceRequest?.applianceName ||
+    'Appliance';
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -203,27 +369,42 @@ export default function UpdateServiceStatusScreen() {
             Appliance Information
           </Text>
 
-          <View style={styles.applianceRow}>
-            <View style={styles.applianceIconBox}>
-              <Text style={styles.applianceEmoji}>
-                🧺
+          {loadingRequest ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator
+                size="small"
+                color="#0EA5C6"
+              />
+
+              <Text style={styles.loadingText}>
+                Loading appliance details...
               </Text>
             </View>
+          ) : (
+            <View style={styles.applianceRow}>
+              <View style={styles.applianceIconBox}>
+                <Text style={styles.applianceEmoji}>
+                  {getApplianceIcon(
+                    applianceName,
+                  )}
+                </Text>
+              </View>
 
-            <View style={styles.applianceDetails}>
-              <Text style={styles.applianceName}>
-                Washing Machine
-              </Text>
+              <View style={styles.applianceDetails}>
+                <Text style={styles.applianceName}>
+                  {applianceName}
+                </Text>
 
-              <Text style={styles.applianceText}>
-                Model: Samsung
-              </Text>
+                <Text style={styles.applianceText}>
+                  Model: Not available
+                </Text>
 
-              <Text style={styles.applianceText}>
-                Serial Number: W88910
-              </Text>
+                <Text style={styles.applianceText}>
+                  Serial Number: Not available
+                </Text>
+              </View>
             </View>
-          </View>
+          )}
         </View>
 
         {/* Service Progress */}
@@ -583,6 +764,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#58717F',
     marginBottom: 2,
+  },
+
+  loadingContainer: {
+    minHeight: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10,
+  },
+
+  loadingText: {
+    fontSize: 12,
+    color: '#58717F',
   },
 
   /* Progress */

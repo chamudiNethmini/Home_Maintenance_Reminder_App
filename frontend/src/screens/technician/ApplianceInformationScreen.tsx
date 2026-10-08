@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+
 import {
   SafeAreaView,
   View,
@@ -6,6 +7,7 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
+  ActivityIndicator,
 } from 'react-native';
 
 import {
@@ -15,6 +17,13 @@ import {
 } from '@react-navigation/native';
 
 import type { RouteProp } from '@react-navigation/native';
+
+import {
+  doc,
+  getDoc,
+} from 'firebase/firestore';
+
+import { db } from '../../config/firebase';
 
 import type { TechnicianStackParamList } from '../../navigation/technicianTypes';
 
@@ -27,6 +36,27 @@ type ApplianceInformationRouteProp =
     'ApplianceInformation'
   >;
 
+type ServiceRequestData = {
+  requestId?: string;
+  applianceId?: string;
+  applianceName?: string;
+  customerId?: string;
+  customerName?: string;
+  problemDescription?: string;
+  status?: string;
+  priority?: string;
+  createdAt?: unknown;
+};
+
+type ApplianceData = {
+  applianceName?: string;
+  name?: string;
+  model?: string;
+  brand?: string;
+  serialNumber?: string;
+  serialNo?: string;
+};
+
 export default function ApplianceInformationScreen() {
   const navigation =
     useNavigation<Navigation>();
@@ -36,6 +66,111 @@ export default function ApplianceInformationScreen() {
 
   const { serviceRequestId } =
     route.params;
+
+  const [request, setRequest] =
+    useState<ServiceRequestData | null>(null);
+
+  const [appliance, setAppliance] =
+    useState<ApplianceData | null>(null);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [errorMessage, setErrorMessage] =
+    useState('');
+
+  useEffect(() => {
+    async function loadServiceRequest() {
+      try {
+        setLoading(true);
+        setErrorMessage('');
+
+        const requestRef = doc(
+          db,
+          'serviceRequests',
+          serviceRequestId,
+        );
+
+        const requestSnapshot =
+          await getDoc(requestRef);
+
+        if (!requestSnapshot.exists()) {
+          setErrorMessage(
+            'Service request not found.',
+          );
+          return;
+        }
+
+        const requestData =
+          requestSnapshot.data() as ServiceRequestData;
+
+        setRequest(requestData);
+
+        if (requestData.applianceId) {
+          const applianceRef = doc(
+            db,
+            'appliances',
+            requestData.applianceId,
+          );
+
+          const applianceSnapshot =
+            await getDoc(applianceRef);
+
+          if (applianceSnapshot.exists()) {
+            setAppliance(
+              applianceSnapshot.data() as ApplianceData,
+            );
+          }
+        }
+      } catch (error) {
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : 'Could not load service request details.',
+        );
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadServiceRequest();
+  }, [serviceRequestId]);
+
+  const applianceName =
+    request?.applianceName ||
+    appliance?.applianceName ||
+    appliance?.name ||
+    'Appliance';
+
+  const model =
+    appliance?.model ||
+    appliance?.brand ||
+    'Not available';
+
+  const serialNumber =
+    appliance?.serialNumber ||
+    appliance?.serialNo ||
+    'Not available';
+
+  const customerName =
+    request?.customerName ||
+    'Not available';
+
+  const problemDescription =
+    request?.problemDescription ||
+    'No problem description available';
+
+  const priority =
+    request?.priority
+      ? request.priority.charAt(0).toUpperCase() +
+        request.priority.slice(1)
+      : 'Not available';
+
+  const requestDate =
+    request?.createdAt &&
+    typeof request.createdAt === 'string'
+      ? request.createdAt
+      : 'Not available';
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -92,146 +227,167 @@ export default function ApplianceInformationScreen() {
           </Text>
         </View>
 
-        {/* Appliance Information */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>
-            Appliance Information
-          </Text>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator
+              size="large"
+              color="#0EA5C6"
+            />
 
-          <View style={styles.infoRow}>
-            <Text style={styles.label}>
-              Appliance
-            </Text>
-
-            <Text style={styles.value}>
-              Washing Machine
+            <Text style={styles.loadingText}>
+              Loading request details...
             </Text>
           </View>
-
-          <View style={styles.infoRow}>
-            <Text style={styles.label}>
-              Model
-            </Text>
-
-            <Text style={styles.value}>
-              Samsung
+        ) : errorMessage ? (
+          <View style={styles.errorBox}>
+            <Text style={styles.errorText}>
+              {errorMessage}
             </Text>
           </View>
+        ) : (
+          <>
+            {/* Appliance Information */}
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>
+                Appliance Information
+              </Text>
 
-          <View style={styles.infoRow}>
-            <Text style={styles.label}>
-              Serial Number
-            </Text>
+              <View style={styles.infoRow}>
+                <Text style={styles.label}>
+                  Appliance
+                </Text>
 
-            <Text style={styles.value}>
-              W88910
-            </Text>
-          </View>
-        </View>
+                <Text style={styles.value}>
+                  {applianceName}
+                </Text>
+              </View>
 
-        {/* Customer Information */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>
-            Customer Information
-          </Text>
+              <View style={styles.infoRow}>
+                <Text style={styles.label}>
+                  Model
+                </Text>
 
-          <View style={styles.infoRow}>
-            <Text style={styles.label}>
-              Customer
-            </Text>
+                <Text style={styles.value}>
+                  {model}
+                </Text>
+              </View>
 
-            <Text style={styles.value}>
-              Kumar
-            </Text>
-          </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.label}>
+                  Serial Number
+                </Text>
 
-          <View style={styles.infoRow}>
-            <Text style={styles.label}>
-              Phone
-            </Text>
+                <Text style={styles.value}>
+                  {serialNumber}
+                </Text>
+              </View>
+            </View>
 
-            <Text style={styles.value}>
-              +94 77 123 4567
-            </Text>
-          </View>
+            {/* Customer Information */}
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>
+                Customer Information
+              </Text>
 
-          <View style={styles.infoRow}>
-            <Text style={styles.label}>
-              Address
-            </Text>
+              <View style={styles.infoRow}>
+                <Text style={styles.label}>
+                  Customer
+                </Text>
 
-            <Text style={styles.value}>
-              No. 25, Main Street, Colombo
-            </Text>
-          </View>
-        </View>
+                <Text style={styles.value}>
+                  {customerName}
+                </Text>
+              </View>
 
-        {/* Problem Description */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>
-            Problem Description
-          </Text>
+              <View style={styles.infoRow}>
+                <Text style={styles.label}>
+                  Phone
+                </Text>
 
-          <Text style={styles.description}>
-            Not working properly
-          </Text>
-        </View>
+                <Text style={styles.value}>
+                  Not available
+                </Text>
+              </View>
 
-        {/* Request Details */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>
-            Request Details
-          </Text>
+              <View style={styles.infoRow}>
+                <Text style={styles.label}>
+                  Address
+                </Text>
 
-          <View style={styles.infoRow}>
-            <Text style={styles.label}>
-              Request ID
-            </Text>
+                <Text style={styles.value}>
+                  Not available
+                </Text>
+              </View>
+            </View>
 
-            <Text style={styles.value}>
-              {serviceRequestId}
-            </Text>
-          </View>
+            {/* Problem Description */}
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>
+                Problem Description
+              </Text>
 
-          <View style={styles.infoRow}>
-            <Text style={styles.label}>
-              Date
-            </Text>
-
-            <Text style={styles.value}>
-              04 Oct 2026
-            </Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Text style={styles.label}>
-              Priority
-            </Text>
-
-            <View style={styles.priorityBadge}>
-              <Text style={styles.priorityText}>
-                High
+              <Text style={styles.description}>
+                {problemDescription}
               </Text>
             </View>
-          </View>
-        </View>
 
-        {/* Update Service Status */}
-        <Pressable
-          style={styles.updateButton}
-          onPress={() =>
-            navigation.navigate(
-              'UpdateServiceStatus',
-              {
-                serviceRequestId,
-              },
-            )
-          }
-        >
-          <Text style={styles.updateButtonText}>
-            Update Service Status
-          </Text>
-        </Pressable>
+            {/* Request Details */}
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>
+                Request Details
+              </Text>
+
+              <View style={styles.infoRow}>
+                <Text style={styles.label}>
+                  Request ID
+                </Text>
+
+                <Text style={styles.value}>
+                  {serviceRequestId}
+                </Text>
+              </View>
+
+              <View style={styles.infoRow}>
+                <Text style={styles.label}>
+                  Date
+                </Text>
+
+                <Text style={styles.value}>
+                  {requestDate}
+                </Text>
+              </View>
+
+              <View style={styles.infoRow}>
+                <Text style={styles.label}>
+                  Priority
+                </Text>
+
+                <View style={styles.priorityBadge}>
+                  <Text style={styles.priorityText}>
+                    {priority}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Update Service Status */}
+            <Pressable
+              style={styles.updateButton}
+              onPress={() =>
+                navigation.navigate(
+                  'UpdateServiceStatus',
+                  {
+                    serviceRequestId,
+                  },
+                )
+              }
+            >
+              <Text style={styles.updateButtonText}>
+                Update Service Status
+              </Text>
+            </Pressable>
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -389,6 +545,37 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
+  },
+
+  /* Loading */
+
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+
+  loadingText: {
+    marginTop: 12,
+    fontSize: 13,
+    color: '#58717F',
+  },
+
+  /* Error */
+
+  errorBox: {
+    backgroundColor: '#FFF1F1',
+    borderWidth: 1,
+    borderColor: '#F2CACA',
+    borderRadius: 14,
+    padding: 15,
+    marginBottom: 15,
+  },
+
+  errorText: {
+    color: '#B42318',
+    fontSize: 13,
+    lineHeight: 19,
   },
 
   /* Update Button */

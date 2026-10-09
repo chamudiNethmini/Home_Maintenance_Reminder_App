@@ -11,6 +11,9 @@
     "web": {
       "bundler": "metro",
       "favicon": "./assets/fixmate-logo.png"
-    }
+    },
+    "plugins": [
+      "@react-native-community/datetimepicker"
+    ]
   }
 }

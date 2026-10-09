@@ -9,6 +9,24 @@ export type HomeownerStackParams = {
 
   AddAppliance: undefined;
 
+ 
+
+  MyWarranty: undefined;
+
+  EditWarranty: undefined;
+
+  
+
+AddWarranty: {
+  applianceId: string;
+  applianceName: string;
+  brand: string;
+  model: string;
+  serialNumber: string;
+  purchaseDate: string;
+  mode?: 'add' | 'edit';
+};
+
   ApplianceDetails: {
     applianceId: string;
   };
@@ -23,7 +41,37 @@ export type HomeownerStackParams = {
   scheduleId?: string;
 };
 
-  Profile: undefined;
+
+
+WarrantyDetails: {
+  applianceId: string;
+  name: string;
+  brand: string;
+  model: string;
+  serialNumber: string;
+  expiry: string;
+  status: string;
+  icon: string;
+  purchaseDate: string;
+  warrantyPeriod: string;
+  warrantyCardUri?: string;
+  purchaseReceiptUri?: string;
+};
+
+UploadDocuments: {
+  warrantyId: string;
+} | undefined;
+
+SetExpiryReminder: {
+  applianceName: string;
+  expiry: string;
+};
+
+
+
+Notifications: undefined;
+
+Profile: undefined;
 };
 
 export type HomeownerScreenProps<

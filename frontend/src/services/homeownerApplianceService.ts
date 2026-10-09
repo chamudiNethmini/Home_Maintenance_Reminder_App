@@ -1,7 +1,6 @@
 import {
   addDoc,
   collection,
-  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -10,6 +9,7 @@ import {
   Timestamp,
   updateDoc,
   where,
+  writeBatch,
 } from 'firebase/firestore';
 
 import {
@@ -332,15 +332,76 @@ export async function deleteHomeownerAppliance(
   applianceId: string,
 ): Promise<void> {
   // Verify ownership first
-  await getHomeownerApplianceById(
-    applianceId,
-  );
+  const appliance =
+    await getHomeownerApplianceById(
+      applianceId,
+    );
 
-  await deleteDoc(
+  const customerId =
+    getCurrentUserId();
+
+  if (
+    appliance.customerId !==
+    customerId
+  ) {
+    throw new Error(
+      'You do not have permission to delete this appliance.',
+    );
+  }
+
+  // Find warranties belonging to this owner and appliance.
+  const warrantyQuery =
+    query(
+      collection(
+        db,
+        'homeownerWarranties',
+      ),
+      where(
+        'customerId',
+        '==',
+        customerId,
+      ),
+      where(
+        'applianceId',
+        '==',
+        applianceId,
+      ),
+    );
+
+  const warrantySnapshot =
+    await getDocs(
+      warrantyQuery,
+    );
+
+  if (
+    getCurrentUserId() !==
+    customerId
+  ) {
+    throw new Error(
+      'Your account changed. Please try again.',
+    );
+  }
+
+  // Delete the linked warranties and appliance together.
+  const batch =
+    writeBatch(db);
+
+  for (
+    const warranty of
+    warrantySnapshot.docs
+  ) {
+    batch.delete(
+      warranty.ref,
+    );
+  }
+
+  batch.delete(
     doc(
       db,
       COLLECTION_NAME,
       applianceId,
     ),
   );
+
+  await batch.commit();
 }

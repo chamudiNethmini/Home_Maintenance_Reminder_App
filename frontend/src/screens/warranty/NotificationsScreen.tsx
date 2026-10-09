@@ -1,12 +1,23 @@
 import React from 'react';
+
 import {
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+
+import { Ionicons } from '@expo/vector-icons';
+
+import {
+  SafeAreaProvider,
+  SafeAreaView,
+} from 'react-native-safe-area-context';
+
+import type {
+  HomeownerScreenProps,
+} from '../../navigation/homeownerTypes';
 
 type AlertItem = {
   title: string;
@@ -40,58 +51,171 @@ const alerts: AlertItem[] = [
   },
 ];
 
-export default function NotificationsScreen() {
+export default function NotificationsScreen({
+  navigation,
+}: HomeownerScreenProps<'Notifications'>) {
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView
-        contentContainerStyle={styles.container}
-        showsVerticalScrollIndicator={false}
+    <SafeAreaProvider style={styles.safeArea}>
+      <SafeAreaView
+        style={styles.safeArea}
+        edges={['top', 'bottom', 'left', 'right']}
       >
         <View style={styles.header}>
-          <Text style={styles.title}>Notifications</Text>
+          <Pressable
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
+            <Text style={styles.backText}>‹</Text>
+          </Pressable>
+
+          <Text style={styles.title}>
+            Notifications
+          </Text>
 
           <View style={styles.profileBox}>
             <Text style={styles.profileText}>K</Text>
-            <Text style={styles.profileName}>Kavi</Text>
+
+            <Text style={styles.profileName}>
+              Kavi
+            </Text>
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>Warranty Alerts</Text>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.container}
+          showsVerticalScrollIndicator={false}
+        >
+          <Text style={styles.sectionTitle}>
+            Warranty Alerts
+          </Text>
 
-        {alerts.map((alert) => (
-          <Pressable key={alert.title} style={styles.alertCard}>
-            <View style={styles.alertIcon}>
-              <Text style={[styles.alertIconText, { color: alert.color }]}>
-                {alert.icon}
-              </Text>
-            </View>
+          {alerts.map((alert) => (
+            <Pressable
+              key={alert.title}
+              style={styles.alertCard}
+            >
+              <View style={styles.alertIcon}>
+                <Text
+                  style={[
+                    styles.alertIconText,
+                    { color: alert.color },
+                  ]}
+                >
+                  {alert.icon}
+                </Text>
+              </View>
 
-            <View style={styles.alertContent}>
-              <Text style={styles.alertTitle}>{alert.title}</Text>
-              <Text style={styles.alertMessage}>{alert.message}</Text>
-              <Text style={styles.alertTime}>{alert.time}</Text>
-            </View>
+              <View style={styles.alertContent}>
+                <Text style={styles.alertTitle}>
+                  {alert.title}
+                </Text>
+
+                <Text style={styles.alertMessage}>
+                  {alert.message}
+                </Text>
+
+                <Text style={styles.alertTime}>
+                  {alert.time}
+                </Text>
+              </View>
+            </Pressable>
+          ))}
+
+          <Pressable style={styles.readButton}>
+            <Text style={styles.readButtonText}>
+              Mark All as Read
+            </Text>
           </Pressable>
-        ))}
 
-        <Pressable style={styles.readButton}>
-          <Text style={styles.readButtonText}>Mark All as Read</Text>
-        </Pressable>
+          <Pressable style={styles.settingsButton}>
+            <Text style={styles.settingsButtonText}>
+              Warranty Settings
+            </Text>
+          </Pressable>
+        </ScrollView>
 
-        <Pressable style={styles.settingsButton}>
-          <Text style={styles.settingsButtonText}>Warranty Settings</Text>
-        </Pressable>
-      </ScrollView>
+        <View style={styles.bottomBar}>
+          <Pressable
+            style={styles.navigationItem}
+            onPress={() =>
+              navigation.navigate('Dashboard')
+            }
+            accessibilityRole="button"
+            accessibilityLabel="Home"
+          >
+            <Ionicons
+              name="home-outline"
+              size={22}
+              color="#58717F"
+            />
 
-      <View style={styles.bottomBar}>
-        <Text style={styles.bottomItem}>⌂{'\n'}Home</Text>
-        <Text style={styles.bottomItem}>▦{'\n'}Appliances</Text>
-        <Text style={styles.bottomItem}>□{'\n'}Calendar</Text>
-        <Text style={[styles.bottomItem, styles.activeBottomItem]}>
-          ♙{'\n'}Profile
-        </Text>
-      </View>
-    </SafeAreaView>
+            <Text style={styles.navigationText}>
+              Home
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.navigationItem}
+            onPress={() =>
+              navigation.navigate('MyAppliances')
+            }
+            accessibilityRole="button"
+            accessibilityLabel="Appliances"
+          >
+            <Ionicons
+              name="apps-outline"
+              size={22}
+              color="#58717F"
+            />
+
+            <Text style={styles.navigationText}>
+              Appliances
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.navigationItem}
+            onPress={() =>
+              navigation.navigate('MaintenanceCalendar')
+            }
+            accessibilityRole="button"
+            accessibilityLabel="Calendar"
+          >
+            <Ionicons
+              name="calendar-outline"
+              size={22}
+              color="#58717F"
+            />
+
+            <Text style={styles.navigationText}>
+              Calendar
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.navigationItem}
+            onPress={() =>
+              navigation.navigate('Profile')
+            }
+            accessibilityRole="button"
+            accessibilityLabel="Profile"
+          >
+            <Ionicons
+              name="person-outline"
+              size={22}
+              color="#58717F"
+            />
+
+            <Text style={styles.navigationText}>
+              Profile
+            </Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    </SafeAreaProvider>
   );
 }
 
@@ -100,25 +224,54 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F4F8FA',
   },
-  container: {
-    padding: 16,
-    paddingBottom: 110,
+
+  scrollView: {
+    flex: 1,
   },
+
+  container: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 24,
+  },
+
   header: {
-    height: 58,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 22,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 18,
+    backgroundColor: '#F4F8FA',
   },
+
+  backButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: '#DDF4FA',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  backText: {
+    color: '#087F80',
+    fontSize: 28,
+    lineHeight: 30,
+  },
+
   title: {
+    flex: 1,
+    marginLeft: 12,
+    marginRight: 8,
     color: '#103851',
     fontSize: 21,
     fontWeight: '700',
   },
+
   profileBox: {
     alignItems: 'center',
   },
+
   profileText: {
     width: 30,
     height: 30,
@@ -129,17 +282,20 @@ const styles = StyleSheet.create({
     paddingTop: 6,
     fontWeight: '700',
   },
+
   profileName: {
     color: '#58717F',
     fontSize: 9,
     marginTop: 2,
   },
+
   sectionTitle: {
     color: '#103851',
     fontSize: 15,
     fontWeight: '700',
     marginBottom: 12,
   },
+
   alertCard: {
     minHeight: 82,
     backgroundColor: '#FFFFFF',
@@ -151,6 +307,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
+
   alertIcon: {
     width: 36,
     height: 36,
@@ -159,31 +316,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
   alertIconText: {
     fontSize: 19,
     fontWeight: '700',
   },
+
   alertContent: {
     flex: 1,
     marginLeft: 12,
   },
+
   alertTitle: {
     color: '#103851',
     fontSize: 12,
     fontWeight: '700',
   },
+
   alertMessage: {
     color: '#58717F',
     fontSize: 11,
     marginTop: 4,
   },
+
   alertTime: {
     color: '#8CA0AA',
     fontSize: 10,
     marginTop: 4,
   },
+
   readButton: {
-    height: 46,
+    minHeight: 46,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#0EA5C6',
@@ -192,43 +355,58 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 12,
   },
+
   readButtonText: {
     color: '#0EA5C6',
     fontWeight: '700',
     fontSize: 12,
   },
+
   settingsButton: {
-    height: 46,
+    minHeight: 46,
     borderRadius: 10,
     backgroundColor: '#0EA5C6',
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 10,
   },
+
   settingsButtonText: {
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 12,
   },
+
   bottomBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 70,
+    minHeight: 68,
+    paddingTop: 9,
+    paddingBottom: 9,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#DEE8ED',
     flexDirection: 'row',
     justifyContent: 'space-around',
-    alignItems: 'center',
   },
+
+  navigationItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+  },
+
+  navigationText: {
+    fontSize: 10,
+    color: '#58717F',
+  },
+
   bottomItem: {
     color: '#8CA0AA',
     fontSize: 10,
     textAlign: 'center',
     lineHeight: 17,
   },
+
   activeBottomItem: {
     color: '#0EA5C6',
     fontWeight: '700',

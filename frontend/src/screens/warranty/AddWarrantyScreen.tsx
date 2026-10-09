@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+
 import {
   Alert,
   Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -11,8 +11,16 @@ import {
   View,
 } from 'react-native';
 
+import {
+  SafeAreaProvider,
+  SafeAreaView,
+} from 'react-native-safe-area-context';
+
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
+
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '../../config/firebase';
 
 import {
   saveHomeownerWarranty,
@@ -45,12 +53,23 @@ function toDatabaseDate(value: string): string {
 
   if (named) {
     const months = [
-      'jan', 'feb', 'mar', 'apr', 'may', 'jun',
-      'jul', 'aug', 'sep', 'oct', 'nov', 'dec',
+      'jan',
+      'feb',
+      'mar',
+      'apr',
+      'may',
+      'jun',
+      'jul',
+      'aug',
+      'sep',
+      'oct',
+      'nov',
+      'dec',
     ];
 
-    const monthIndex =
-      months.indexOf(named[2].toLowerCase());
+    const monthIndex = months.indexOf(
+      named[2].toLowerCase(),
+    );
 
     if (monthIndex >= 0) {
       return (
@@ -70,8 +89,9 @@ function getCalendarDate(value: string): Date {
   try {
     const formatted = toDatabaseDate(value);
 
-    const [year, month, day] =
-      formatted.split('-').map(Number);
+    const [year, month, day] = formatted
+      .split('-')
+      .map(Number);
 
     const date = new Date(year, month - 1, day);
 
@@ -83,7 +103,7 @@ function getCalendarDate(value: string): Date {
       return date;
     }
   } catch {
-    // Use today's date when the input cannot be parsed.
+    // The field stays empty until a date is selected.
   }
 
   return new Date();
@@ -97,48 +117,140 @@ function formatDisplayDate(date: Date): string {
   );
 }
 
+function showMessage(title: string, message: string) {
+  if (Platform.OS === 'web') {
+    window.alert(`${title}\n\n${message}`);
+  } else {
+    Alert.alert(title, message);
+  }
+}
+
 export default function AddWarrantyScreen({
   route,
   navigation,
 }: HomeownerScreenProps<'AddWarranty'>) {
   const isEdit = route.params.mode === 'edit';
 
-  const [applianceName, setApplianceName] =
-    useState(route.params.applianceName);
-
-  const [brand, setBrand] =
-    useState(route.params.brand);
-
-  const [model, setModel] =
-    useState(route.params.model);
-
-  const [purchaseDate, setPurchaseDate] =
-    useState(route.params.purchaseDate);
+  const {
+    applianceId,
+    applianceName,
+    brand,
+    model,
+    purchaseDate,
+    serialNumber,
+  } = route.params;
 
   const [warrantyPeriod, setWarrantyPeriod] =
-    useState('2 Years');
+    useState('');
 
-  const [expiryDate, setExpiryDate] =
-    useState('15 / 03 / 2028');
+  const [expiryDate, setExpiryDate] = useState('');
 
   const [showExpiryCalendar, setShowExpiryCalendar] =
     useState(false);
 
-  const [serialNumber] =
-    useState(route.params.serialNumber);
-
   const [saving, setSaving] = useState(false);
 
-  const showMessage = (
-    title: string,
-    message: string,
-  ) => {
-    if (Platform.OS === 'web') {
-      window.alert(`${title}\n\n${message}`);
-    } else {
-      Alert.alert(title, message);
+  const [loadingWarranty, setLoadingWarranty] =
+    useState(isEdit);
+
+  const [loadError, setLoadError] = useState('');
+
+  const savingRef = useRef(false);
+
+  useEffect(() => {
+    let active = true;
+
+    setWarrantyPeriod('');
+    setExpiryDate('');
+    setLoadError('');
+    setShowExpiryCalendar(false);
+
+    if (!isEdit) {
+      setLoadingWarranty(false);
+      return;
     }
-  };
+
+    setLoadingWarranty(true);
+
+    const loadWarranty = async () => {
+      try {
+        const user = auth.currentUser;
+
+        if (!user) {
+          throw new Error('Please log in first.');
+        }
+
+        const customerId = user.uid;
+
+        const warrantyId =
+          `${customerId}_${encodeURIComponent(applianceId)}`;
+
+        const snapshot = await getDoc(
+          doc(db, 'homeownerWarranties', warrantyId),
+        );
+
+        if (!active) {
+          return;
+        }
+
+        if (auth.currentUser?.uid !== customerId) {
+          throw new Error(
+            'Your session changed. Please log in again.',
+          );
+        }
+
+        if (!snapshot.exists()) {
+          throw new Error(
+            'Warranty record was not found.',
+          );
+        }
+
+        const data = snapshot.data();
+
+        if (
+          data.customerId !== customerId ||
+          data.applianceId !== applianceId
+        ) {
+          throw new Error(
+            'You cannot edit this warranty.',
+          );
+        }
+
+        setWarrantyPeriod(
+          typeof data.warrantyPeriod === 'string'
+            ? data.warrantyPeriod
+            : '',
+        );
+
+        setExpiryDate(
+          typeof data.expiryDate === 'string'
+            ? data.expiryDate
+            : '',
+        );
+      } catch (error) {
+        if (active) {
+          setLoadError(
+            error instanceof Error
+              ? error.message
+              : 'Could not load warranty.',
+          );
+        }
+      } finally {
+        if (active) {
+          setLoadingWarranty(false);
+        }
+      }
+    };
+
+    void loadWarranty();
+
+    return () => {
+      active = false;
+    };
+  }, [applianceId, isEdit]);
+
+  const busy =
+    saving || loadingWarranty || !!loadError;
 
   const validateWarrantyFields = () => {
     if (
@@ -146,13 +258,29 @@ export default function AddWarrantyScreen({
       !brand.trim() ||
       !model.trim() ||
       !serialNumber.trim() ||
-      !purchaseDate.trim() ||
-      !warrantyPeriod.trim() ||
-      !expiryDate.trim()
+      !purchaseDate.trim()
     ) {
       showMessage(
-        'Required fields',
-        'Please fill all warranty details before continuing.',
+        'Appliance details required',
+        'Please complete the appliance details on the appliance page first.',
+      );
+
+      return false;
+    }
+
+    if (!warrantyPeriod.trim()) {
+      showMessage(
+        'Warranty period required',
+        'Please enter the warranty period.',
+      );
+
+      return false;
+    }
+
+    if (!expiryDate.trim()) {
+      showMessage(
+        'Expiry date required',
+        'Please enter or select the warranty expiry date.',
       );
 
       return false;
@@ -162,19 +290,25 @@ export default function AddWarrantyScreen({
   };
 
   const handleUploadDocuments = async () => {
-    if (saving || !validateWarrantyFields()) {
+    if (
+      busy ||
+      savingRef.current ||
+      !validateWarrantyFields()
+    ) {
       return;
     }
 
+    savingRef.current = true;
     setSaving(true);
 
     try {
-      const warrantyId = await saveHomeownerWarranty({
-        applianceId: route.params.applianceId,
-        purchaseDate: toDatabaseDate(purchaseDate),
-        expiryDate: toDatabaseDate(expiryDate),
-        warrantyPeriod: warrantyPeriod.trim(),
-      });
+      const warrantyId =
+        await saveHomeownerWarranty({
+          applianceId,
+          purchaseDate: toDatabaseDate(purchaseDate),
+          expiryDate: toDatabaseDate(expiryDate),
+          warrantyPeriod: warrantyPeriod.trim(),
+        });
 
       navigation.navigate('UploadDocuments', {
         warrantyId,
@@ -187,20 +321,26 @@ export default function AddWarrantyScreen({
           : 'Please try again.',
       );
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };
 
   const handleSaveWarranty = async () => {
-    if (saving || !validateWarrantyFields()) {
+    if (
+      busy ||
+      savingRef.current ||
+      !validateWarrantyFields()
+    ) {
       return;
     }
 
+    savingRef.current = true;
     setSaving(true);
 
     try {
       await saveHomeownerWarranty({
-        applianceId: route.params.applianceId,
+        applianceId,
         purchaseDate: toDatabaseDate(purchaseDate),
         expiryDate: toDatabaseDate(expiryDate),
         warrantyPeriod: warrantyPeriod.trim(),
@@ -224,9 +364,8 @@ export default function AddWarrantyScreen({
           [
             {
               text: 'OK',
-              onPress: () => {
-                navigation.navigate('MyWarranty');
-              },
+              onPress: () =>
+                navigation.navigate('MyWarranty'),
             },
           ],
           { cancelable: false },
@@ -240,16 +379,16 @@ export default function AddWarrantyScreen({
           : 'Please try again.',
       );
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView
-        contentContainerStyle={styles.container}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+    <SafeAreaProvider style={styles.safeArea}>
+      <SafeAreaView
+        style={styles.safeArea}
+        edges={['top', 'right', 'bottom', 'left']}
       >
         <View style={styles.header}>
           <Pressable
@@ -270,187 +409,254 @@ export default function AddWarrantyScreen({
           </View>
         </View>
 
-        <Text style={styles.subtitle}>
-          {isEdit
-            ? 'Update warranty information'
-            : 'Register appliance warranty information'}
-        </Text>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.container}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <Text style={styles.subtitle}>
+            {isEdit
+              ? 'Update warranty information'
+              : 'Register appliance warranty information'}
+          </Text>
 
-        <Text style={styles.label}>
-          Appliance Name *
-        </Text>
-
-        <TextInput
-          value={applianceName}
-          onChangeText={setApplianceName}
-          placeholder="Enter appliance name"
-          placeholderTextColor="#8CA0AA"
-          style={styles.input}
-          editable={!saving}
-        />
-
-        <Text style={styles.label}>Brand *</Text>
-
-        <TextInput
-          value={brand}
-          onChangeText={setBrand}
-          placeholder="Enter brand"
-          placeholderTextColor="#8CA0AA"
-          style={styles.input}
-          editable={!saving}
-        />
-
-        <Text style={styles.label}>Model *</Text>
-
-        <TextInput
-          value={model}
-          onChangeText={setModel}
-          placeholder="Enter model number"
-          placeholderTextColor="#8CA0AA"
-          style={styles.input}
-          editable={!saving}
-        />
-
-        <Text style={styles.label}>
-          Purchase Date *
-        </Text>
-
-        <TextInput
-          value={purchaseDate}
-          onChangeText={setPurchaseDate}
-          placeholder="DD / MM / YYYY"
-          placeholderTextColor="#8CA0AA"
-          style={styles.input}
-          editable={!saving}
-        />
-
-        <Text style={styles.label}>
-          Warranty Period *
-        </Text>
-
-        <TextInput
-          value={warrantyPeriod}
-          onChangeText={setWarrantyPeriod}
-          placeholder="Example: 2 Years"
-          placeholderTextColor="#8CA0AA"
-          style={styles.input}
-          editable={!saving}
-        />
-
-        <Text style={styles.label}>
-          Warranty Expiry Date *
-        </Text>
-
-        {Platform.OS === 'web' ? (
-          <View style={styles.dateInput}>
-            <TextInput
-              value={expiryDate}
-              onChangeText={setExpiryDate}
-              placeholder="DD / MM / YYYY"
-              placeholderTextColor="#8CA0AA"
-              style={{
-                flex: 1,
-                color: '#103851',
-                fontSize: 13,
-              }}
-              editable={!saving}
-            />
-
-            <Ionicons
-              name="calendar-outline"
-              size={22}
-              color="#087F80"
-            />
-          </View>
-        ) : (
-          <Pressable
-            style={styles.dateInput}
-            onPress={() => setShowExpiryCalendar(true)}
-            disabled={saving}
-          >
-            <Text style={styles.dateText}>
-              {expiryDate || 'DD / MM / YYYY'}
+          {loadingWarranty && (
+            <Text style={styles.subtitle}>
+              Loading saved warranty...
             </Text>
-
-            <Ionicons
-              name="calendar-outline"
-              size={22}
-              color="#087F80"
-            />
-          </Pressable>
-        )}
-
-        {showExpiryCalendar &&
-          Platform.OS !== 'web' && (
-            <DateTimePicker
-              value={getCalendarDate(expiryDate)}
-              mode="date"
-              display="default"
-              onChange={(event, date) => {
-                setShowExpiryCalendar(false);
-
-                if (event.type === 'set' && date) {
-                  setExpiryDate(formatDisplayDate(date));
-                }
-              }}
-            />
           )}
 
-        <Pressable
-          style={styles.uploadButton}
-          disabled={saving}
-          onPress={handleUploadDocuments}
-        >
-          <Text style={styles.uploadIcon}>▧</Text>
+          {!!loadError && (
+            <Text style={styles.errorText}>
+              {loadError}
+            </Text>
+          )}
 
-          <Text style={styles.uploadText}>
-            {isEdit
-              ? 'Update Document'
-              : 'Upload Document'}
+          <Text style={styles.label}>
+            Appliance Name *
           </Text>
-        </Pressable>
 
-        <Pressable
-          style={[
-            styles.saveButton,
-            saving && { opacity: 0.6 },
-          ]}
-          onPress={handleSaveWarranty}
-          disabled={saving}
-        >
-          <Text style={styles.saveText}>
-            {saving
-              ? 'Saving...'
-              : isEdit
-                ? 'Save Changes'
-                : 'Save Warranty'}
+          <TextInput
+            value={applianceName}
+            style={styles.input}
+            editable={false}
+          />
+
+          <Text style={styles.label}>Brand *</Text>
+
+          <TextInput
+            value={brand}
+            style={styles.input}
+            editable={false}
+          />
+
+          <Text style={styles.label}>Model *</Text>
+
+          <TextInput
+            value={model}
+            style={styles.input}
+            editable={false}
+          />
+
+          <Text style={styles.label}>
+            Purchase Date *
           </Text>
-        </Pressable>
-      </ScrollView>
 
-      <View style={styles.bottomBar}>
-        <Text style={styles.bottomItem}>
-          ⌂{'\n'}Home
-        </Text>
+          <TextInput
+            value={purchaseDate}
+            style={styles.input}
+            editable={false}
+          />
 
-        <Text style={styles.bottomItem}>
-          ▦{'\n'}Appliances
-        </Text>
+          <Text style={styles.label}>
+            Warranty Period *
+          </Text>
 
-        <Text style={styles.bottomItem}>
-          □{'\n'}Calendar
-        </Text>
+          <TextInput
+            value={warrantyPeriod}
+            onChangeText={setWarrantyPeriod}
+            placeholder="Enter warranty period"
+            placeholderTextColor="#8CA0AA"
+            style={styles.input}
+            editable={!busy}
+          />
 
-        <Text
-          style={[
-            styles.bottomItem,
-            styles.activeBottomItem,
-          ]}
-        >
-          ♙{'\n'}Profile
-        </Text>
-      </View>
-    </SafeAreaView>
+          <Text style={styles.label}>
+            Warranty Expiry Date *
+          </Text>
+
+          {Platform.OS === 'web' ? (
+            <View style={styles.dateInput}>
+              <TextInput
+                value={expiryDate}
+                onChangeText={setExpiryDate}
+                placeholder="DD / MM / YYYY"
+                placeholderTextColor="#8CA0AA"
+                style={styles.webDateText}
+                editable={!busy}
+              />
+
+              <Ionicons
+                name="calendar-outline"
+                size={22}
+                color="#087F80"
+              />
+            </View>
+          ) : (
+            <View style={styles.dateInput}>
+              <TextInput
+                value={expiryDate}
+                onChangeText={setExpiryDate}
+                placeholder="DD / MM / YYYY"
+                placeholderTextColor="#8CA0AA"
+                style={styles.webDateText}
+                editable={!busy}
+              />
+
+              <Pressable
+                disabled={busy}
+                onPress={() =>
+                  setShowExpiryCalendar(true)
+                }
+                hitSlop={10}
+                accessibilityLabel="Choose warranty expiry date"
+              >
+                <Ionicons
+                  name="calendar-outline"
+                  size={22}
+                  color="#087F80"
+                />
+              </Pressable>
+            </View>
+          )}
+
+          {showExpiryCalendar &&
+            Platform.OS !== 'web' && (
+              <DateTimePicker
+                value={getCalendarDate(expiryDate)}
+                mode="date"
+                display="default"
+                onChange={(event, date) => {
+                  setShowExpiryCalendar(false);
+
+                  if (event.type === 'set' && date) {
+                    setExpiryDate(
+                      formatDisplayDate(date),
+                    );
+                  }
+                }}
+              />
+            )}
+
+          <Pressable
+            style={[
+              styles.uploadButton,
+              busy && styles.disabledButton,
+            ]}
+            disabled={busy}
+            onPress={handleUploadDocuments}
+          >
+            <Text style={styles.uploadIcon}>▧</Text>
+
+            <Text style={styles.uploadText}>
+              {isEdit
+                ? 'Update Document'
+                : 'Upload Document'}
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={[
+              styles.saveButton,
+              busy && styles.disabledButton,
+            ]}
+            onPress={handleSaveWarranty}
+            disabled={busy}
+          >
+            <Text style={styles.saveText}>
+              {saving
+                ? 'Saving...'
+                : loadingWarranty
+                  ? 'Loading...'
+                  : isEdit
+                    ? 'Save Changes'
+                    : 'Save Warranty'}
+            </Text>
+          </Pressable>
+        </ScrollView>
+
+        <View style={styles.bottomBar}>
+          <Pressable
+            style={styles.navigationItem}
+            onPress={() =>
+              navigation.navigate('Dashboard')
+            }
+          >
+            <Ionicons
+              name="home-outline"
+              size={22}
+              color="#58717F"
+            />
+
+            <Text style={styles.navigationText}>
+              Home
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.navigationItem}
+            onPress={() =>
+              navigation.navigate('MyAppliances')
+            }
+          >
+            <Ionicons
+              name="apps-outline"
+              size={22}
+              color="#58717F"
+            />
+
+            <Text style={styles.navigationText}>
+              Appliances
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.navigationItem}
+            onPress={() =>
+              navigation.navigate('MaintenanceCalendar')
+            }
+          >
+            <Ionicons
+              name="calendar-outline"
+              size={22}
+              color="#58717F"
+            />
+
+            <Text style={styles.navigationText}>
+              Calendar
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.navigationItem}
+            onPress={() =>
+              navigation.navigate('Profile')
+            }
+          >
+            <Ionicons
+              name="person-outline"
+              size={22}
+              color="#58717F"
+            />
+
+            <Text style={styles.navigationText}>
+              Profile
+            </Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    </SafeAreaProvider>
   );
 }
 
@@ -459,15 +665,26 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F4F8FA',
   },
-  container: {
-    padding: 16,
-    paddingBottom: 100,
+
+  scroll: {
+    flex: 1,
   },
+
+  container: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 24,
+  },
+
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 12,
+    backgroundColor: '#F4F8FA',
   },
+
   backButton: {
     width: 38,
     height: 38,
@@ -476,21 +693,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
   backText: {
     color: '#087F80',
     fontSize: 28,
     lineHeight: 30,
   },
+
   title: {
     flex: 1,
     marginLeft: 12,
+    marginRight: 8,
     color: '#103851',
     fontSize: 20,
     fontWeight: '700',
   },
+
   profileBox: {
     alignItems: 'center',
   },
+
   profileText: {
     width: 30,
     height: 30,
@@ -501,22 +723,26 @@ const styles = StyleSheet.create({
     paddingTop: 6,
     fontWeight: '700',
   },
+
   profileName: {
     color: '#58717F',
     fontSize: 9,
     marginTop: 2,
   },
+
   subtitle: {
     color: '#58717F',
     fontSize: 13,
     marginBottom: 16,
   },
+
   label: {
     color: '#103851',
     fontSize: 12,
     fontWeight: '600',
     marginBottom: 6,
   },
+
   input: {
     height: 46,
     backgroundColor: '#FFFFFF',
@@ -528,6 +754,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginBottom: 14,
   },
+
   dateInput: {
     height: 46,
     backgroundColor: '#FFFFFF',
@@ -540,10 +767,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  dateText: {
+
+  webDateText: {
+    flex: 1,
     color: '#103851',
     fontSize: 13,
+    marginRight: 8,
   },
+
   uploadButton: {
     height: 48,
     borderRadius: 10,
@@ -556,15 +787,18 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginBottom: 12,
   },
+
   uploadIcon: {
     color: '#0EA5C6',
     fontSize: 18,
     marginRight: 8,
   },
+
   uploadText: {
     color: '#0EA5C6',
     fontWeight: '600',
   },
+
   saveButton: {
     height: 48,
     borderRadius: 10,
@@ -572,32 +806,62 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
   saveText: {
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '700',
   },
+
   bottomBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 70,
+    minHeight: 68,
+    paddingTop: 9,
+    paddingBottom: 9,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#DEE8ED',
     flexDirection: 'row',
     justifyContent: 'space-around',
-    alignItems: 'center',
   },
+
+  navigationItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+  },
+
+  navigationText: {
+    fontSize: 10,
+    color: '#58717F',
+  },
+
+  bottomNavButton: {
+    flex: 1,
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
   bottomItem: {
     color: '#8CA0AA',
     fontSize: 10,
     textAlign: 'center',
     lineHeight: 17,
   },
+
   activeBottomItem: {
     color: '#0EA5C6',
     fontWeight: '700',
+  },
+
+  disabledButton: {
+    opacity: 0.6,
+  },
+
+  errorText: {
+    color: '#E64646',
+    fontSize: 13,
+    marginBottom: 16,
   },
 });

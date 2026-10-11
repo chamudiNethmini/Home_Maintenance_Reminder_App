@@ -273,6 +273,14 @@ export default function WarrantyDetailsScreen({
       return;
     }
 
+    if (!/^[0-9]{10}$/.test(customerPhone)) {
+      showMessage(
+        'Invalid phone number',
+        'Please enter exactly 10 digits.',
+      );
+      return;
+    }
+
     if (!requestNotes.trim()) {
       showMessage(
         'Description required',
@@ -505,9 +513,14 @@ export default function WarrantyDetailsScreen({
 
               <TextInput
                 value={customerPhone}
-                onChangeText={setCustomerPhone}
+                onChangeText={(value) => {
+                  if (/^[0-9]{0,10}$/.test(value)) {
+                    setCustomerPhone(value);
+                  }
+                }}
                 editable={!sendingRequest}
                 keyboardType="phone-pad"
+                maxLength={10}
                 placeholder="Your phone number"
                 placeholderTextColor="#58717F"
                 style={styles.requestInput}
@@ -555,60 +568,60 @@ export default function WarrantyDetailsScreen({
         </ScrollView>
 
         <View style={styles.bottomBar}>
-  <Pressable
-    style={styles.navigationItem}
-    onPress={() => navigation.navigate('Dashboard')}
-  >
-    <Ionicons
-      name="home-outline"
-      size={22}
-      color="#58717F"
-    />
-    <Text style={styles.navigationText}>Home</Text>
-  </Pressable>
+          <Pressable
+            style={styles.navigationItem}
+            onPress={() => navigation.navigate('Dashboard')}
+          >
+            <Ionicons
+              name="home-outline"
+              size={22}
+              color="#58717F"
+            />
+            <Text style={styles.navigationText}>Home</Text>
+          </Pressable>
 
-  <Pressable
-    style={styles.navigationItem}
-    onPress={() => navigation.navigate('MyAppliances')}
-  >
-    <Ionicons
-      name="apps-outline"
-      size={22}
-      color="#58717F"
-    />
-    <Text style={styles.navigationText}>
-      Appliances
-    </Text>
-  </Pressable>
+          <Pressable
+            style={styles.navigationItem}
+            onPress={() => navigation.navigate('MyAppliances')}
+          >
+            <Ionicons
+              name="apps-outline"
+              size={22}
+              color="#58717F"
+            />
+            <Text style={styles.navigationText}>
+              Appliances
+            </Text>
+          </Pressable>
 
-  <Pressable
-    style={styles.navigationItem}
-    onPress={() =>
-      navigation.navigate('MaintenanceCalendar')
-    }
-  >
-    <Ionicons
-      name="calendar-outline"
-      size={22}
-      color="#58717F"
-    />
-    <Text style={styles.navigationText}>
-      Calendar
-    </Text>
-  </Pressable>
+          <Pressable
+            style={styles.navigationItem}
+            onPress={() =>
+              navigation.navigate('MaintenanceCalendar')
+            }
+          >
+            <Ionicons
+              name="calendar-outline"
+              size={22}
+              color="#58717F"
+            />
+            <Text style={styles.navigationText}>
+              Calendar
+            </Text>
+          </Pressable>
 
-  <Pressable
-    style={styles.navigationItem}
-    onPress={() => navigation.navigate('Profile')}
-  >
-    <Ionicons
-      name="person-outline"
-      size={22}
-      color="#58717F"
-    />
-    <Text style={styles.navigationText}>Profile</Text>
-  </Pressable>
-</View>
+          <Pressable
+            style={styles.navigationItem}
+            onPress={() => navigation.navigate('Profile')}
+          >
+            <Ionicons
+              name="person-outline"
+              size={22}
+              color="#58717F"
+            />
+            <Text style={styles.navigationText}>Profile</Text>
+          </Pressable>
+        </View>
       </SafeAreaView>
     </SafeAreaProvider>
   );
@@ -901,27 +914,27 @@ const styles = StyleSheet.create({
   },
 
   bottomBar: {
-  minHeight: 68,
-  paddingTop: 9,
-  paddingBottom: 9,
-  backgroundColor: '#FFFFFF',
-  borderTopWidth: 1,
-  borderTopColor: '#DEE8ED',
-  flexDirection: 'row',
-  justifyContent: 'space-around',
-},
+    minHeight: 68,
+    paddingTop: 9,
+    paddingBottom: 9,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#DEE8ED',
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
 
-navigationItem: {
-  flex: 1,
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: 3,
-},
+  navigationItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+  },
 
-navigationText: {
-  fontSize: 10,
-  color: '#58717F',
-},
+  navigationText: {
+    fontSize: 10,
+    color: '#58717F',
+  },
 
   bottomItem: {
     color: '#8CA0AA',

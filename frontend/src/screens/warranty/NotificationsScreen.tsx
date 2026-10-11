@@ -1,13 +1,13 @@
-
 import React, {
-  useCallback,
   useEffect,
+  useRef,
   useState,
 } from 'react';
 
 import {
   ActivityIndicator,
   Alert,
+  AppState,
   Platform,
   Pressable,
   ScrollView,
@@ -25,19 +25,14 @@ import {
 
 import {
   collection,
-  getDocs,
+  onSnapshot,
   query,
   where,
 } from 'firebase/firestore';
 
-import {
-  onAuthStateChanged,
-} from 'firebase/auth';
+import { onAuthStateChanged } from 'firebase/auth';
 
-import {
-  auth,
-  db,
-} from '../../config/firebase';
+import { auth, db } from '../../config/firebase';
 
 import {
   markHomeownerReminderRead,
@@ -46,6 +41,8 @@ import {
 import type {
   HomeownerScreenProps,
 } from '../../navigation/homeownerTypes';
+
+const DEMO_OPTION = 'Demo — after 8 seconds';
 
 type WarrantyReminder = {
   id: string;
@@ -74,8 +71,14 @@ type WarrantyData = {
     pushNotification?: boolean;
     emailNotification?: boolean;
     isRead?: boolean;
+    dueAtMs?: number;
+    notificationVisible?: boolean;
   };
-  [key: string]: unknown;
+};
+
+type WarrantyRecord = {
+  id: string;
+  data: WarrantyData;
 };
 
 const REMINDER_OPTIONS = [
@@ -94,23 +97,45 @@ function showMessage(title: string, message: string) {
 }
 
 function parseExpiryDate(value: unknown): Date | null {
-  if (!value) {
-    return null;
+  if (!value) return null;
+
+  // Parse date-only values in local time.
+  if (typeof value === 'string') {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+
+    if (match) {
+      const year = Number(match[1]);
+      const month = Number(match[2]) - 1;
+      const day = Number(match[3]);
+
+      const date = new Date(year, month, day);
+
+      if (
+        date.getFullYear() !== year ||
+        date.getMonth() !== month ||
+        date.getDate() !== day
+      ) {
+        return null;
+      }
+
+      date.setHours(23, 59, 59, 999);
+      return date;
+    }
   }
 
   let date: Date;
 
-  // Firestore Timestamp
   if (
     typeof value === 'object' &&
     value !== null &&
     'toDate' in value &&
     typeof value.toDate === 'function'
   ) {
-    date = value.toDate();
-  } else if (
-    value instanceof Date
-  ) {
+    const result: unknown = value.toDate();
+
+    if (!(result instanceof Date)) return null;
+    date = new Date(result.getTime());
+  } else if (value instanceof Date) {
     date = new Date(value.getTime());
   } else if (
     typeof value === 'string' ||
@@ -121,19 +146,7 @@ function parseExpiryDate(value: unknown): Date | null {
     return null;
   }
 
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-
-  // Treat a date-only value as the end of that local day.
-  if (
-    typeof value === 'string' &&
-    /^\d{4}-\d{2}-\d{2}$/.test(value)
-  ) {
-    date.setHours(23, 59, 59, 999);
-  }
-
-  return date;
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 function getExpiryDate(
@@ -149,10 +162,7 @@ function getExpiryDate(
 
   for (const value of possibleFields) {
     const parsed = parseExpiryDate(value);
-
-    if (parsed) {
-      return parsed;
-    }
+    if (parsed) return parsed;
   }
 
   return null;
@@ -162,18 +172,23 @@ function calculateReminderDate(
   expiryDate: Date,
   option: string,
 ): Date | null {
-  if (!REMINDER_OPTIONS.includes(option)) {
-    return null;
-  }
+  if (!REMINDER_OPTIONS.includes(option)) return null;
 
-  const reminderDate = new Date(expiryDate);
+  const reminderDate = new Date(expiryDate.getTime());
 
-  if (option === '1 month before expiry') {
+  const months =
+    option === '1 month before expiry'
+      ? 1
+      : option === '3 months before expiry'
+        ? 3
+        : 0;
+
+  if (months > 0) {
     const originalDay = reminderDate.getDate();
 
     reminderDate.setDate(1);
     reminderDate.setMonth(
-      reminderDate.getMonth() - 1,
+      reminderDate.getMonth() - months,
     );
 
     const lastDay = new Date(
@@ -182,34 +197,9 @@ function calculateReminderDate(
       0,
     ).getDate();
 
-    reminderDate.setDate(
-      Math.min(originalDay, lastDay),
-    );
-  } else if (
-    option === '3 months before expiry'
-  ) {
-    const originalDay = reminderDate.getDate();
-
-    reminderDate.setDate(1);
-    reminderDate.setMonth(
-      reminderDate.getMonth() - 3,
-    );
-
-    const lastDay = new Date(
-      reminderDate.getFullYear(),
-      reminderDate.getMonth() + 1,
-      0,
-    ).getDate();
-
-    reminderDate.setDate(
-      Math.min(originalDay, lastDay),
-    );
-  } else if (
-    option === '1 week before expiry'
-  ) {
-    reminderDate.setDate(
-      reminderDate.getDate() - 7,
-    );
+    reminderDate.setDate(Math.min(originalDay, lastDay));
+  } else if (option === '1 week before expiry') {
+    reminderDate.setDate(reminderDate.getDate() - 7);
   }
 
   return reminderDate;
@@ -225,41 +215,16 @@ function formatReminderTime(date: Date): string {
 function createReminder(
   id: string,
   warranty: WarrantyData,
+  now: number,
 ): WarrantyReminder | null {
   const reminder = warranty.reminder;
 
   if (
     !reminder ||
-    reminder.enabled !== true ||
-    !reminder.option ||
-    !REMINDER_OPTIONS.includes(reminder.option)
+    reminder.enabled === false ||
+    reminder.pushNotification !== true ||
+    !reminder.option
   ) {
-    return null;
-  }
-
-  // Email-only or disabled reminders are not shown
-  // as push notification alerts.
-  if (reminder.pushNotification !== true) {
-    return null;
-  }
-
-  const expiryDate = getExpiryDate(warranty);
-
-  if (!expiryDate) {
-    return null;
-  }
-
-  const dueAt = calculateReminderDate(
-    expiryDate,
-    reminder.option,
-  );
-
-  if (!dueAt) {
-    return null;
-  }
-
-  // Do not show reminders before their scheduled date.
-  if (dueAt.getTime() > Date.now()) {
     return null;
   }
 
@@ -268,7 +233,48 @@ function createReminder(
     warranty.name ||
     'Appliance';
 
-  const isExpired = expiryDate.getTime() < Date.now();
+  // Demo reminders use their actual due time.
+  if (reminder.option === DEMO_OPTION) {
+    if (
+      reminder.notificationVisible !== true ||
+      typeof reminder.dueAtMs !== 'number' ||
+      !Number.isFinite(reminder.dueAtMs) ||
+      reminder.dueAtMs <= 0 ||
+      reminder.dueAtMs > now
+    ) {
+      return null;
+    }
+
+    const dueAt = new Date(reminder.dueAtMs);
+
+    return {
+      id,
+      applianceName,
+      message: 'Demo warranty reminder — after 8 seconds',
+      time: formatReminderTime(dueAt),
+      color: '#F5A623',
+      icon: 'alert',
+      isRead: reminder.isRead === true,
+      dueAt,
+    };
+  }
+
+  if (!REMINDER_OPTIONS.includes(reminder.option)) {
+    return null;
+  }
+
+  const expiryDate = getExpiryDate(warranty);
+
+  if (!expiryDate) return null;
+
+  const dueAt = calculateReminderDate(
+    expiryDate,
+    reminder.option,
+  );
+
+  if (!dueAt || dueAt.getTime() > now) return null;
+
+  const isExpired = expiryDate.getTime() < now;
 
   return {
     id,
@@ -287,149 +293,163 @@ function createReminder(
 export default function NotificationsScreen({
   navigation,
 }: HomeownerScreenProps<'Notifications'>) {
-  const [alerts, setAlerts] = useState<WarrantyReminder[]>([]);
+  const [records, setRecords] = useState<WarrantyRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [markingRead, setMarkingRead] = useState(false);
+  const [error, setError] = useState('');
+  const [retryCount, setRetryCount] = useState(0);
+  const [now, setNow] = useState(Date.now());
 
-  const loadReminders = useCallback(async () => {
-    const user = auth.currentUser;
+  const markingRef = useRef(false);
 
-    if (!user) {
-      setAlerts([]);
-      setLoading(false);
-      return;
-    }
+  useEffect(() => {
+    let active = true;
+    let version = 0;
+    let stopSnapshot: (() => void) | undefined;
 
-    try {
+    const stopAuth = onAuthStateChanged(auth, (user) => {
+      stopSnapshot?.();
+      stopSnapshot = undefined;
+
+      const currentVersion = ++version;
+
+      if (!active) return;
+
+      setRecords([]);
+      setLoading(true);
+      setError('');
+
+      if (!user) {
+        setLoading(false);
+        setRefreshing(false);
+        setError('Please log in to view your reminders.');
+        return;
+      }
+
       const warrantiesQuery = query(
         collection(db, 'homeownerWarranties'),
         where('customerId', '==', user.uid),
       );
 
-      const snapshot = await getDocs(warrantiesQuery);
+      stopSnapshot = onSnapshot(
+        warrantiesQuery,
+        (snapshot) => {
+          if (
+            !active ||
+            currentVersion !== version ||
+            auth.currentUser?.uid !== user.uid
+          ) {
+            return;
+          }
 
-      // Do not show data if the signed-in user changed
-      // while the request was running.
-      if (auth.currentUser?.uid !== user.uid) {
-        setAlerts([]);
-        return;
-      }
-
-      const currentTime = Date.now();
-
-      const reminders = snapshot.docs
-        .map((document) => {
-          const warranty =
-            document.data() as WarrantyData;
-
-          return createReminder(
-            document.id,
-            warranty,
+          setRecords(
+            snapshot.docs.map((document) => ({
+              id: document.id,
+              data: document.data() as WarrantyData,
+            })),
           );
-        })
-        .filter(
-          (
-            reminder,
-          ): reminder is WarrantyReminder =>
-            reminder !== null,
-        )
-        .sort(
-          (a, b) =>
-            a.dueAt.getTime() - b.dueAt.getTime(),
-        );
 
-      // Hide future reminders. Keep due and overdue alerts.
-      setAlerts(
-        reminders.filter(
-          (item) =>
-            item.dueAt.getTime() <= currentTime,
-        ),
-      );
-    } catch (error) {
-      console.error(
-        'Failed to load warranty reminders:',
-        error,
-      );
+          setNow(Date.now());
+          setLoading(false);
+          setRefreshing(false);
+          setError('');
+        },
+        (snapshotError) => {
+          if (!active || currentVersion !== version) return;
 
-      showMessage(
-        'Unable to load reminders',
-        'Please check your internet connection and try again.',
+          setRecords([]);
+          setLoading(false);
+          setRefreshing(false);
+          setError(snapshotError.message);
+        },
       );
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
+    });
+
+    return () => {
+      active = false;
+      version += 1;
+      stopSnapshot?.();
+      stopAuth();
+    };
+  }, [retryCount]);
 
   useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(
-      auth,
-      () => {
-        void loadReminders();
-      },
-    );
+    const timer = setInterval(() => {
+      setNow(Date.now());
+    }, 30000);
 
-    const unsubscribeFocus = navigation.addListener(
-      'focus',
-      () => {
-        setRefreshing(true);
-        void loadReminders();
+    const stopFocus = navigation.addListener('focus', () => {
+      setNow(Date.now());
+    });
+
+    const subscription = AppState.addEventListener(
+      'change',
+      (state) => {
+        if (state === 'active') setNow(Date.now());
       },
     );
 
     return () => {
-      unsubscribeAuth();
-      unsubscribeFocus();
+      clearInterval(timer);
+      stopFocus();
+      subscription.remove();
     };
-  }, [navigation, loadReminders]);
+  }, [navigation]);
 
-  const handleMarkAllAsRead = async () => {
-    const unreadAlerts = alerts.filter(
-      (item) => !item.isRead,
+  const alerts = records
+    .map((record) =>
+      createReminder(record.id, record.data, now),
+    )
+    .filter(
+      (item): item is WarrantyReminder => item !== null,
+    )
+    .sort(
+      (first, second) =>
+        second.dueAt.getTime() - first.dueAt.getTime(),
     );
 
-    if (unreadAlerts.length === 0) {
-      showMessage(
-        'Notifications',
-        'All reminders are already marked as read.',
-      );
+  const handleMarkAllAsRead = async () => {
+    if (markingRef.current) return;
+
+    const unreadAlerts = alerts.filter((item) => !item.isRead);
+
+    if (unreadAlerts.length === 0) return;
+
+    const customerId = auth.currentUser?.uid;
+
+    if (!customerId) {
+      showMessage('Login required', 'Please log in first.');
       return;
     }
 
+    markingRef.current = true;
     setMarkingRead(true);
 
     try {
-      await Promise.all(
-        unreadAlerts.map((item) =>
-          markHomeownerReminderRead(item.id),
-        ),
-      );
+      for (const item of unreadAlerts) {
+        if (auth.currentUser?.uid !== customerId) {
+          throw new Error('Your session changed. Please log in again.');
+        }
 
-      setAlerts((previous) =>
-        previous.map((item) => ({
-          ...item,
-          isRead: true,
-        })),
-      );
+        await markHomeownerReminderRead(item.id);
+      }
 
-      showMessage(
-        'Success',
-        'All reminders marked as read.',
-      );
-    } catch (error) {
-      console.error(
-        'Failed to mark reminders as read:',
-        error,
-      );
-
+      if (auth.currentUser?.uid === customerId) {
+        showMessage(
+          'Success',
+          'All reminders marked as read.',
+        );
+      }
+    } catch (readError) {
       showMessage(
         'Update failed',
-        'Could not mark all reminders as read. Please try again.',
+        readError instanceof Error
+          ? readError.message
+          : 'Could not mark all reminders as read.',
       );
-
-      await loadReminders();
     } finally {
+      markingRef.current = false;
       setMarkingRead(false);
     }
   };
@@ -450,9 +470,7 @@ export default function NotificationsScreen({
             <Text style={styles.backText}>‹</Text>
           </Pressable>
 
-          <Text style={styles.title}>
-            Notifications
-          </Text>
+          <Text style={styles.title}>Notifications</Text>
 
           <View style={styles.profileBox}>
             <Text style={styles.profileText}>
@@ -471,9 +489,6 @@ export default function NotificationsScreen({
           style={styles.scrollView}
           contentContainerStyle={styles.container}
           showsVerticalScrollIndicator={false}
-          onScrollBeginDrag={() => {
-            // No automatic network request on every scroll.
-          }}
         >
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>
@@ -481,9 +496,10 @@ export default function NotificationsScreen({
             </Text>
 
             <Pressable
+              disabled={loading || refreshing}
               onPress={() => {
                 setRefreshing(true);
-                void loadReminders();
+                setRetryCount((value) => value + 1);
               }}
               accessibilityRole="button"
               accessibilityLabel="Refresh reminders"
@@ -507,6 +523,20 @@ export default function NotificationsScreen({
                 Loading warranty reminders...
               </Text>
             </View>
+          ) : error ? (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyTitle}>
+                Unable to load reminders
+              </Text>
+
+              <Text style={styles.emptyMessage}>
+                {error}
+              </Text>
+
+              <Text style={styles.emptyMessage}>
+                Press the refresh icon to retry.
+              </Text>
+            </View>
           ) : alerts.length === 0 ? (
             <View style={styles.emptyCard}>
               <View style={styles.emptyIcon}>
@@ -524,6 +554,7 @@ export default function NotificationsScreen({
               <Text style={styles.emptyMessage}>
                 Reminders will appear here when the
                 scheduled notification date arrives.
+                For the demo, press OK on the reminder popup.
               </Text>
             </View>
           ) : (
@@ -532,8 +563,7 @@ export default function NotificationsScreen({
                 key={alert.id}
                 style={[
                   styles.alertCard,
-                  !alert.isRead &&
-                    styles.unreadAlertCard,
+                  !alert.isRead && styles.unreadAlertCard,
                 ]}
               >
                 <View style={styles.alertIcon}>
@@ -574,15 +604,20 @@ export default function NotificationsScreen({
           <Pressable
             style={[
               styles.readButton,
-              (markingRead ||
-                alerts.every((item) => item.isRead)) &&
-                styles.disabledButton,
+              (
+                markingRead ||
+                loading ||
+                alerts.every((item) => item.isRead)
+              ) && styles.disabledButton,
             ]}
             disabled={
               markingRead ||
+              loading ||
               alerts.every((item) => item.isRead)
             }
-            onPress={handleMarkAllAsRead}
+            onPress={() => {
+              void handleMarkAllAsRead();
+            }}
           >
             <Text style={styles.readButtonText}>
               {markingRead
@@ -615,9 +650,7 @@ export default function NotificationsScreen({
         <View style={styles.bottomBar}>
           <Pressable
             style={styles.navigationItem}
-            onPress={() =>
-              navigation.navigate('Dashboard')
-            }
+            onPress={() => navigation.navigate('Dashboard')}
             accessibilityRole="button"
             accessibilityLabel="Home"
           >
@@ -626,10 +659,7 @@ export default function NotificationsScreen({
               size={22}
               color="#58717F"
             />
-
-            <Text style={styles.navigationText}>
-              Home
-            </Text>
+            <Text style={styles.navigationText}>Home</Text>
           </Pressable>
 
           <Pressable
@@ -645,7 +675,6 @@ export default function NotificationsScreen({
               size={22}
               color="#58717F"
             />
-
             <Text style={styles.navigationText}>
               Appliances
             </Text>
@@ -664,7 +693,6 @@ export default function NotificationsScreen({
               size={22}
               color="#58717F"
             />
-
             <Text style={styles.navigationText}>
               Calendar
             </Text>
@@ -672,9 +700,7 @@ export default function NotificationsScreen({
 
           <Pressable
             style={styles.navigationItem}
-            onPress={() =>
-              navigation.navigate('Profile')
-            }
+            onPress={() => navigation.navigate('Profile')}
             accessibilityRole="button"
             accessibilityLabel="Profile"
           >
@@ -683,10 +709,7 @@ export default function NotificationsScreen({
               size={22}
               color="#58717F"
             />
-
-            <Text style={styles.navigationText}>
-              Profile
-            </Text>
+            <Text style={styles.navigationText}>Profile</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -699,17 +722,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F4F8FA',
   },
-
-  scrollView: {
-    flex: 1,
-  },
-
+  scrollView: { flex: 1 },
   container: {
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 24,
   },
-
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -718,7 +736,6 @@ const styles = StyleSheet.create({
     paddingBottom: 18,
     backgroundColor: '#F4F8FA',
   },
-
   backButton: {
     width: 38,
     height: 38,
@@ -727,13 +744,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-
   backText: {
     color: '#087F80',
     fontSize: 28,
     lineHeight: 30,
   },
-
   title: {
     flex: 1,
     marginLeft: 12,
@@ -742,12 +757,10 @@ const styles = StyleSheet.create({
     fontSize: 21,
     fontWeight: '700',
   },
-
   profileBox: {
     alignItems: 'center',
     maxWidth: 75,
   },
-
   profileText: {
     width: 30,
     height: 30,
@@ -760,26 +773,22 @@ const styles = StyleSheet.create({
     paddingTop: 5,
     fontWeight: '700',
   },
-
   profileName: {
     color: '#58717F',
     fontSize: 9,
     marginTop: 2,
   },
-
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 12,
   },
-
   sectionTitle: {
     color: '#103851',
     fontSize: 15,
     fontWeight: '700',
   },
-
   alertCard: {
     minHeight: 82,
     backgroundColor: '#FFFFFF',
@@ -791,11 +800,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
-
   unreadAlertCard: {
     borderColor: '#B9EAF3',
   },
-
   alertIcon: {
     width: 42,
     height: 42,
@@ -804,49 +811,41 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-
   alertContent: {
     flex: 1,
     marginLeft: 12,
   },
-
   alertTitle: {
     color: '#103851',
     fontSize: 13,
     fontWeight: '700',
   },
-
   alertMessage: {
     color: '#58717F',
     fontSize: 12,
     marginTop: 4,
   },
-
   alertTime: {
     color: '#8CA0AA',
     fontSize: 10,
     marginTop: 4,
   },
-
   unreadText: {
     color: '#0EA5C6',
     fontSize: 10,
     fontWeight: '700',
     marginTop: 4,
   },
-
   stateContainer: {
     paddingVertical: 32,
     alignItems: 'center',
     justifyContent: 'center',
   },
-
   stateText: {
     color: '#58717F',
     fontSize: 12,
     marginTop: 12,
   },
-
   emptyCard: {
     minHeight: 190,
     backgroundColor: '#FFFFFF',
@@ -858,7 +857,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 12,
   },
-
   emptyIcon: {
     width: 54,
     height: 54,
@@ -868,14 +866,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 12,
   },
-
   emptyTitle: {
     color: '#103851',
     fontSize: 14,
     fontWeight: '700',
     textAlign: 'center',
   },
-
   emptyMessage: {
     color: '#58717F',
     fontSize: 12,
@@ -883,7 +879,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 7,
   },
-
   readButton: {
     minHeight: 46,
     borderRadius: 10,
@@ -894,13 +889,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 12,
   },
-
   readButtonText: {
     color: '#0EA5C6',
     fontWeight: '700',
     fontSize: 12,
   },
-
   settingsButton: {
     minHeight: 46,
     borderRadius: 10,
@@ -909,24 +902,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 10,
   },
-
   settingsButtonText: {
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 12,
   },
-
   disabledButton: {
     opacity: 0.45,
   },
-
   refreshText: {
     color: '#58717F',
     fontSize: 10,
     textAlign: 'center',
     marginTop: 10,
   },
-
   bottomBar: {
     minHeight: 68,
     paddingTop: 9,
@@ -937,14 +926,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
   },
-
   navigationItem: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 3,
   },
-
   navigationText: {
     fontSize: 10,
     color: '#58717F',

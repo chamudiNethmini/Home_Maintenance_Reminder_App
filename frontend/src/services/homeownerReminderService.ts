@@ -43,11 +43,10 @@ export async function saveHomeownerReminder(
     throw new Error('Please select a valid reminder option.');
   }
 
-  if (!input.pushNotification && !input.emailNotification) {
-    throw new Error(
-      'Please select at least one notification method.',
-    );
-  }
+  // Push acts as the main reminder switch for this appliance.
+  const pushNotification = input.pushNotification;
+  const emailNotification =
+    pushNotification && input.emailNotification;
 
   const warrantyQuery = query(
     collection(db, 'homeownerWarranties'),
@@ -91,8 +90,9 @@ export async function saveHomeownerReminder(
     transaction.update(warrantyRef, {
       reminder: {
         option: input.option,
-        pushNotification: input.pushNotification,
-        emailNotification: input.emailNotification,
+        pushNotification,
+        emailNotification,
+        enabled: pushNotification,
         isRead: false,
         savedAt: serverTimestamp(),
       },

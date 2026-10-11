@@ -70,9 +70,9 @@ export async function submitHomeownerWarrantyRequest(
     );
   }
 
-  if (!/^\+?[\d\s()-]{7,20}$/.test(phone)) {
+  if (!/^[0-9]{10}$/.test(phone)) {
     throw new Error(
-      'Please enter a valid phone number.',
+      'Please enter a phone number containing exactly 10 digits.',
     );
   }
 

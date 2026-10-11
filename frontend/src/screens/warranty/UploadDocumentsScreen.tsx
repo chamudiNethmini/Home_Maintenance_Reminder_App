@@ -103,14 +103,22 @@ export default function UploadDocumentsScreen({
   const [uploading, setUploading] = useState(false);
   const [selecting, setSelecting] = useState(false);
 
+  const [menuDocumentId, setMenuDocumentId] =
+    useState<string | null>(null);
+
+  const [deletingId, setDeletingId] =
+    useState<string | null>(null);
+
   const busy = useRef(false);
   const pickerBusy = useRef(false);
   const sequence = useRef(0);
 
-  const disabled = uploading || selecting;
+  const disabled =
+    uploading || selecting || deletingId !== null;
 
   const newId = () => {
     sequence.current += 1;
+
     return `${Date.now()}_${sequence.current}`;
   };
 
@@ -137,6 +145,8 @@ export default function UploadDocumentsScreen({
       return;
     }
 
+    setMenuDocumentId(null);
+
     setDocuments((previous) => [
       ...previous.filter(
         (item) => item.documentType !== kind,
@@ -150,6 +160,7 @@ export default function UploadDocumentsScreen({
       return;
     }
 
+    setMenuDocumentId(null);
     pickerBusy.current = true;
     setSelecting(true);
 
@@ -205,6 +216,7 @@ export default function UploadDocumentsScreen({
       return;
     }
 
+    setMenuDocumentId(null);
     pickerBusy.current = true;
     setSelecting(true);
 
@@ -239,6 +251,104 @@ export default function UploadDocumentsScreen({
     } finally {
       pickerBusy.current = false;
       setSelecting(false);
+    }
+  };
+
+  const deleteDocument = async (
+    selected: DocumentItem,
+  ) => {
+    if (busy.current || pickerBusy.current) {
+      return;
+    }
+
+    busy.current = true;
+    setDeletingId(selected.id);
+    setMenuDocumentId(null);
+
+    try {
+      // Selected files that have not been uploaded
+      // only need to be removed from this screen.
+      if (selected.fileUrl) {
+        const customerId = auth.currentUser?.uid;
+        const warrantyId = route.params?.warrantyId;
+
+        if (!customerId) {
+          throw new Error('Please log in first.');
+        }
+
+        if (!warrantyId) {
+          throw new Error('Warranty record was not found.');
+        }
+
+        const warrantyRef = doc(
+          db,
+          'homeownerWarranties',
+          warrantyId,
+        );
+
+        await runTransaction(db, async (transaction) => {
+          const snapshot =
+            await transaction.get(warrantyRef);
+
+          if (auth.currentUser?.uid !== customerId) {
+            throw new Error(
+              'Your session changed. Please log in again.',
+            );
+          }
+
+          if (!snapshot.exists()) {
+            throw new Error(
+              'Warranty record was not found.',
+            );
+          }
+
+          const data = snapshot.data();
+
+          if (data.customerId !== customerId) {
+            throw new Error(
+              'You cannot update this warranty.',
+            );
+          }
+
+          const storedDocuments: unknown[] =
+            Array.isArray(data.documents)
+              ? data.documents
+              : [];
+
+          const remainingDocuments =
+            storedDocuments.filter((value) => {
+              if (!value || typeof value !== 'object') {
+                return true;
+              }
+
+              const stored =
+                value as Record<string, unknown>;
+
+              return stored.id !== selected.id;
+            });
+
+          transaction.update(warrantyRef, {
+            documents: remainingDocuments,
+            updatedAt: serverTimestamp(),
+          });
+        });
+      }
+
+      setDocuments((previous) =>
+        previous.filter(
+          (item) => item.id !== selected.id,
+        ),
+      );
+    } catch (cause) {
+      showMessage(
+        'Could not delete document',
+        cause instanceof Error
+          ? cause.message
+          : 'Please try again.',
+      );
+    } finally {
+      busy.current = false;
+      setDeletingId(null);
     }
   };
 
@@ -301,6 +411,7 @@ export default function UploadDocumentsScreen({
       return;
     }
 
+    setMenuDocumentId(null);
     busy.current = true;
     setUploading(true);
 
@@ -453,6 +564,12 @@ export default function UploadDocumentsScreen({
   const openDocument = async (
     document: DocumentItem,
   ) => {
+    if (busy.current || pickerBusy.current) {
+      return;
+    }
+
+    setMenuDocumentId(null);
+
     if (!document.fileUrl) {
       showMessage(
         'Not uploaded yet',
@@ -531,38 +648,105 @@ export default function UploadDocumentsScreen({
         </View>
 
         {selected ? (
-          <Pressable
-            style={styles.documentCard}
-            disabled={uploading}
-            onPress={() => {
-              void openDocument(selected);
-            }}
-          >
-            <View style={styles.fileIcon}>
-              <Text style={styles.fileIconText}>
-                ▧
-              </Text>
-            </View>
-
-            <View style={styles.documentInfo}>
-              <Text
-                style={styles.documentName}
-                numberOfLines={2}
+          <View style={styles.documentWrapper}>
+            <View
+              style={[
+                styles.documentCard,
+                styles.documentCardWithMenu,
+              ]}
+            >
+              <Pressable
+                style={styles.documentOpenButton}
+                disabled={disabled}
+                onPress={() => {
+                  void openDocument(selected);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={`Open ${documentLabel(kind)}`}
               >
-                {selected.name}
-              </Text>
+                <View style={styles.fileIcon}>
+                  <Text style={styles.fileIconText}>
+                    ▧
+                  </Text>
+                </View>
 
-              <Text style={styles.documentType}>
-                {selected.fileUrl
-                  ? 'Uploaded successfully'
-                  : 'Selected — not uploaded yet'}
-              </Text>
+                <View style={styles.documentInfo}>
+                  <Text
+                    style={styles.documentName}
+                    numberOfLines={2}
+                  >
+                    {selected.name}
+                  </Text>
+
+                  <Text style={styles.documentType}>
+                    {deletingId === selected.id
+                      ? 'Deleting...'
+                      : selected.fileUrl
+                        ? 'Uploaded successfully'
+                        : 'Selected — not uploaded yet'}
+                  </Text>
+                </View>
+
+                {selected.fileUrl && (
+                  <Text style={styles.successIcon}>
+                    ✓
+                  </Text>
+                )}
+              </Pressable>
+
+              <Pressable
+                style={styles.menuButton}
+                disabled={disabled}
+                onPress={() => {
+                  if (busy.current || pickerBusy.current) {
+                    return;
+                  }
+
+                  setMenuDocumentId((previous) =>
+                    previous === selected.id
+                      ? null
+                      : selected.id,
+                  );
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={`${documentLabel(kind)} options`}
+                accessibilityState={{
+                  expanded: menuDocumentId === selected.id,
+                  disabled,
+                }}
+              >
+                <Ionicons
+                  name="ellipsis-horizontal"
+                  size={22}
+                  color="#087F80"
+                />
+              </Pressable>
             </View>
 
-            <Text style={styles.successIcon}>
-              {selected.fileUrl ? '✓' : '…'}
-            </Text>
-          </Pressable>
+            {menuDocumentId === selected.id && (
+              <View style={styles.documentMenu}>
+                <Pressable
+                  style={styles.deleteButton}
+                  disabled={disabled}
+                  onPress={() => {
+                    void deleteDocument(selected);
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Delete ${documentLabel(kind)}`}
+                >
+                  <Ionicons
+                    name="trash-outline"
+                    size={18}
+                    color="#E64646"
+                  />
+
+                  <Text style={styles.deleteText}>
+                    Delete
+                  </Text>
+                </Pressable>
+              </View>
+            )}
+          </View>
         ) : (
           <Text style={styles.emptyText}>
             No {documentLabel(kind).toLowerCase()} selected.
@@ -628,6 +812,7 @@ export default function UploadDocumentsScreen({
         <View style={styles.bottomBar}>
           <Pressable
             style={styles.navigationItem}
+            disabled={disabled}
             onPress={() =>
               navigation.navigate('Dashboard')
             }
@@ -645,6 +830,7 @@ export default function UploadDocumentsScreen({
 
           <Pressable
             style={styles.navigationItem}
+            disabled={disabled}
             onPress={() =>
               navigation.navigate('MyAppliances')
             }
@@ -662,6 +848,7 @@ export default function UploadDocumentsScreen({
 
           <Pressable
             style={styles.navigationItem}
+            disabled={disabled}
             onPress={() =>
               navigation.navigate('MaintenanceCalendar')
             }
@@ -679,6 +866,7 @@ export default function UploadDocumentsScreen({
 
           <Pressable
             style={styles.navigationItem}
+            disabled={disabled}
             onPress={() =>
               navigation.navigate('Profile')
             }
@@ -911,5 +1099,53 @@ const styles = StyleSheet.create({
 
   disabledButton: {
     opacity: 0.6,
+  },
+
+  documentWrapper: {
+    marginBottom: 24,
+  },
+
+  documentCardWithMenu: {
+    marginBottom: 0,
+  },
+
+  documentOpenButton: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  menuButton: {
+    width: 44,
+    height: 44,
+    marginLeft: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  documentMenu: {
+    alignSelf: 'flex-end',
+    minWidth: 130,
+    marginTop: 6,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#DEE8ED',
+    borderRadius: 10,
+  },
+
+  deleteButton: {
+    minHeight: 44,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  deleteText: {
+    color: '#E64646',
+    fontSize: 13,
+    fontWeight: '600',
   },
 });

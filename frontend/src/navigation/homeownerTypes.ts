@@ -63,6 +63,7 @@ UploadDocuments: {
 } | undefined;
 
 SetExpiryReminder: {
+  applianceId: string;
   applianceName: string;
   expiry: string;
 };

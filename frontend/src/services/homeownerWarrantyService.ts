@@ -18,6 +18,9 @@ type SaveHomeownerWarrantyInput = {
   purchaseDate: string;
   expiryDate: string;
   warrantyPeriod?: string;
+
+  // Used only to prepare a record for document uploads.
+  prepareForUpload?: boolean;
 };
 
 function validateDate(value: string, label: string): Date {
@@ -42,6 +45,25 @@ function validateDate(value: string, label: string): Date {
   }
 
   return date;
+}
+
+function hasUploadedDocument(
+  documents: unknown[],
+  documentType: string,
+): boolean {
+  return documents.some((value) => {
+    if (!value || typeof value !== 'object') {
+      return false;
+    }
+
+    const document = value as Record<string, unknown>;
+
+    return (
+      document.documentType === documentType &&
+      typeof document.fileUrl === 'string' &&
+      document.fileUrl.startsWith('https://')
+    );
+  });
 }
 
 export async function saveHomeownerWarranty(
@@ -108,12 +130,112 @@ export async function saveHomeownerWarranty(
   await runTransaction(db, async (transaction) => {
     const existing = await transaction.get(warrantyRef);
 
+    if (auth.currentUser?.uid !== customerId) {
+      throw new Error(
+        'Your session changed. Please log in again.',
+      );
+    }
+
+    const existingData = existing.exists()
+      ? existing.data()
+      : null;
+
     if (
-      existing.exists() &&
-      existing.data().customerId !== customerId
+      existingData &&
+      (
+        existingData.customerId !== customerId ||
+        existingData.applianceId !== applianceId
+      )
     ) {
       throw new Error(
         'You do not have permission to update this warranty.',
+      );
+    }
+
+    // Use the supplied period, or retain the saved period
+    // when an existing caller does not supply it.
+    const warrantyPeriod =
+      input.warrantyPeriod !== undefined
+        ? input.warrantyPeriod.trim()
+        : typeof existingData?.warrantyPeriod === 'string'
+          ? existingData.warrantyPeriod.trim()
+          : '';
+
+    const allowedPeriods = [
+      '1 year',
+      '2 years',
+      '3 years',
+      '4 years',
+      '5 years',
+    ];
+
+    if (!allowedPeriods.includes(warrantyPeriod)) {
+      throw new Error(
+        'Please select a warranty period from 1 to 5 years.',
+      );
+    }
+
+    const warrantyYears = Number.parseInt(
+      warrantyPeriod,
+      10,
+    );
+
+    const allowedYear =
+      purchaseDate.getFullYear() + warrantyYears;
+
+    const allowedMonth = purchaseDate.getMonth();
+
+    // Any valid day within the purchase month,
+    // after the selected number of years, is allowed.
+    if (
+      expiryDate.getFullYear() !== allowedYear ||
+      expiryDate.getMonth() !== allowedMonth
+    ) {
+      const firstDay =
+        `${allowedYear}-` +
+        `${String(allowedMonth + 1).padStart(2, '0')}-01`;
+
+      const lastDayNumber = new Date(
+        allowedYear,
+        allowedMonth + 1,
+        0,
+      ).getDate();
+
+      const lastDay =
+        `${allowedYear}-` +
+        `${String(allowedMonth + 1).padStart(2, '0')}-` +
+        `${String(lastDayNumber).padStart(2, '0')}`;
+
+      throw new Error(
+        `For a ${warrantyPeriod} warranty, expiry date must be between ${firstDay} and ${lastDay}.`,
+      );
+    }
+
+    const documents: unknown[] =
+      Array.isArray(existingData?.documents)
+        ? existingData.documents
+        : [];
+
+    const hasWarrantyCard = hasUploadedDocument(
+      documents,
+      'warranty_card',
+    );
+
+    const hasPurchaseReceipt = hasUploadedDocument(
+      documents,
+      'purchase_receipt',
+    );
+
+    const documentsComplete =
+      hasWarrantyCard && hasPurchaseReceipt;
+
+    // Final saving requires both successfully uploaded documents.
+    if (
+      input.prepareForUpload !== true &&
+      !documentsComplete
+    ) {
+      throw new Error(
+        'Please upload both the warranty card and purchase receipt before saving.',
       );
     }
 
